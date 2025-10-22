@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+
+import argparse
+import configparser
+import datetime
+import logging
+import math
+import os
+import signal
+import sys
+import time
+
+import dbus
+import dbus.service
+import dbus.mainloop.glib
+from gi.repository import GLib, Gio
+
+
+portal_impl_service_name = 'org.freedesktop.impl.portal.desktop.schemer'
+portal_impl_settings_iface = 'org.freedesktop.impl.portal.Settings'
+default_config_file_name = 'xdg-desktop-portal-schemer.ini'
+
+
+class Config(object):
+    def __init__(self, filename_override):
+        self._filename_override = filename_override
+        self._cp = None
+        self._reload()
+        self._reload_handlers = set()
+        signal.signal(signal.SIGHUP, self._handle_sighup)
+
+    def _reload(self):
+        self.filename = self._filename_override or \
+            os.path.join(GLib.get_user_config_dir(), default_config_file_name)
+        try:
+            logging.debug('reading config from %s' % (self.filename,))
+            cp = configparser.ConfigParser(
+                default_section=None,
+                interpolation=configparser.ExtendedInterpolation())
+            with open(self.filename) as fh:
+                cp.read_file(fh)
+            self._cp = cp
+        except Exception:
+            logging.exception('failed to read config from %s' % (
+                self.filename,))
+
+    def _handle_sighup(self, sig, frame):
+        self._reload()
+        for fn in self._reload_handlers:
+            fn()
+
+    def handle_config_reload(self, fn):
+        self._reload_handlers.add(fn)
+
+    def _get(self, section, key, default=None):
+        if self._cp is not None and self._cp.has_section(section):
+            return self._cp.get(section, key, fallback=default)
+        else:
+            return default
+
+    def _strptime(self, datetimestr):
+        if len(datetimestr.strip()) == 0:
+            return []
+        try:
+            return [datetime.datetime.strptime(datetimestr.strip(), '%H:%M')]
+        except Exception:
+            pass
+
+        # Yes, this technique is really how you're supposed to do it:
+        # https://docs.python.org/3.13/library/datetime.html#datetime.datetime.strptime
+        lunacy = ' This interface is pure lunacy '
+        idiotic = str(datetime.datetime.now().year) + lunacy
+        format = '%Y' + lunacy + '%m/%d-%H:%M'
+        try:
+            return [datetime.datetime.strptime(idiotic + i, format)
+                    for i in datetimestr.split()]
+        except Exception:
+            pass
+
+        logging.error('invalid time format: %s' % (datetimestr,))
+        return []
+
+    def get_times(self):
+        return {k: self._strptime(self._get('schedule', k, ''))
+                for k in ('default', 'light', 'dark')}
+
+
+class ScheduledTime(object):
+    def __init__(self, schedule):
+        self.schedule = schedule
+
+    # why doesn't datetime.time support addition with a timedelta?
+    def _timeadd(self, a, b):
+        dummy = datetime.datetime(2000, 1, 1)
+        return (datetime.datetime.combine(dummy.date(), a) + b).time()
+
+    # why doesn't datetime.time support subtraction to generate a timedelta?
+    def _timesub(self, a, b):
+        dummy = datetime.date(2000, 1, 1)
+        return datetime.datetime.combine(dummy, a) - \
+            datetime.datetime.combine(dummy, b)
+
+    def for_datetime(self, base):
+        if len(self.schedule) == 0:
+            return None
+
+        range = []
+        for sched in self.schedule:
+            range.extend(sched.replace(year=y)
+                         for y in (base.year - 1, base.year, base.year + 1))
+        range.sort()
+
+        prev = range[0]
+        for next in range:
+            if next > base:
+                break
+            prev = next
+
+        next_time_delta = self._timesub(next.time(), prev.time())
+        next_date_delta = max(datetime.timedelta(seconds=1),
+                              next.date() - prev.date())
+        base_date_delta = base.date() - prev.date()
+        base_time_delta = next_time_delta * (base_date_delta / next_date_delta)
+        new_time = self._timeadd(prev.time(), base_time_delta)
+
+        return datetime.datetime.combine(base.date(), new_time)
+
+
+class Scheduler(object):
+    def __init__(self, config, settings):
+        self._config = config
+        self._settings = settings
+        try:
+            self._timerfd = os.timerfd_create(
+                time.CLOCK_REALTIME, flags=os.TFD_NONBLOCK | os.TFD_CLOEXEC)
+            GLib.unix_fd_add_full(GLib.PRIORITY_DEFAULT,
+                                  self._timerfd,
+                                  GLib.IOCondition.IN,
+                                  self._handle_timerfd)
+        except AttributeError:
+            self._timerfd = None
+            signal.signal(signal.SIGALRM, self._handle_sigalrm)
+        self._scheduled_update('initial')
+        config.handle_config_reload(lambda: self._scheduled_update('reload'))
+
+    def _handle_sigalrm(self, sig, frame):
+        self._scheduled_update('scheduled')
+
+    def _handle_timerfd(self, fd, cond):
+        os.read(self._timerfd, 8)
+        self._scheduled_update('scheduled')
+        return True
+
+    def _alarm(self, when, now):
+        if self._timerfd is None:
+            if when and now:
+                signal.alarm(math.ceil((when - now).total_seconds()))
+            else:
+                signal.alarm(0)
+        else:
+            if when:
+                os.timerfd_settime(self._timerfd,
+                                   flags=os.TFD_TIMER_ABSTIME,
+                                   initial=when.timestamp())
+            else:
+                os.timerfd_settime(self._timerfd, flags=os.TFD_TIMER_ABSTIME)
+
+    def _scheduled_update(self, reason):
+        cur_scheme, next_change, now = self._schedule()
+        if cur_scheme is None:
+            self._alarm(None, None)
+        else:
+            logging.debug('update (%s) to %s at %s, next at %s' % (
+                reason, cur_scheme, now.ctime(), next_change.ctime()))
+            self._settings.set_color_scheme(cur_scheme)
+            self._alarm(next_change, now)
+
+    def _schedule(self):
+        now = datetime.datetime.now()
+        schedules = {k: ScheduledTime(v)
+                     for k, v in self._config.get_times().items()}
+
+        scheme_times = []
+        for delta in (-1, 0, 1):
+            basetime = now + datetime.timedelta(days=delta)
+            for scheme, sched in schedules.items():
+                when = sched.for_datetime(basetime)
+                if when is not None:
+                    scheme_times.append((scheme, when))
+        scheme_times.sort(key=lambda i: i[1])
+
+        if not scheme_times:
+            return None, None, None
+
+        prev = scheme_times[0]
+        for next in scheme_times:
+            if next[1] > now:
+                break
+            prev = next
+
+        return (prev[0], next[1], now)
+
+
+class XdgDesktopPortalErrorNotFound(dbus.DBusException):
+    include_traceback = False
+    _dbus_error_name = 'org.freedesktop.portal.Error.NotFound'
+
+
+class SettingsPortal(dbus.service.Object):
+    _obj_path = '/org/freedesktop/portal/desktop'
+    _namespace = 'org.freedesktop.appearance'
+    _color_scheme = 'color-scheme'
+
+    def __init__(self, bus_name, backend):
+        super().__init__(bus_name=bus_name, object_path=self._obj_path)
+        self._backend = backend
+        self._scheme = None
+        self._save_scheme()
+        backend.handle_color_scheme_changed(self._backend_changed)
+
+    def _save_scheme(self):
+        newval = self._backend.get_color_scheme()
+        if newval == self._scheme:
+            logging.debug('color-scheme unchanged: %r' % (newval,))
+            return False
+        self._scheme = newval
+        logging.debug('read color scheme setting: %r' % (self._scheme,))
+        return True
+
+    def _get_scheme(self, variant_level=0):
+        return dbus.UInt32(self._scheme, variant_level=variant_level)
+
+    def _backend_changed(self):
+        if self._save_scheme():
+            self.SettingChanged(
+                self._namespace, self._color_scheme, self._get_scheme(1))
+
+    def _not_found(self):
+        raise XdgDesktopPortalErrorNotFound('Requested setting not found')
+
+    @dbus.service.method(dbus_interface=portal_impl_settings_iface,
+                         in_signature='as', out_signature='a{sa{sv}}')
+    def ReadAll(self, namespaces):
+        logging.debug('method ReadAll(%r)' % (namespaces,))
+        res = {}
+        for namespace in namespaces:
+            if namespace == self._namespace:
+                res[namespace] = {self._color_scheme: self._get_scheme(1)}
+            else:
+                self._not_found()
+        logging.debug('returning %r' % (res,))
+        return res
+
+    @dbus.service.method(dbus_interface=portal_impl_settings_iface,
+                         in_signature='ss', out_signature='v')
+    def Read(self, namespace, key):
+        logging.debug('method Read(%r, %r)' % (namespace, key))
+        if namespace == self._namespace and key == self._color_scheme:
+            res = self._get_scheme(2)
+            logging.debug('returning %r' % (res,))
+            return res
+        self._not_found()
+
+    @dbus.service.method(dbus_interface=portal_impl_settings_iface,
+                         in_signature='ss', out_signature='v')
+    def ReadOne(self, namespace, key):
+        logging.debug('method ReadOne(%r, %r)' % (namespace, key))
+        if namespace == self._namespace and key == self._color_scheme:
+            res = self._get_scheme(1)
+            logging.debug('returning %r' % (res,))
+            return res
+        self._not_found()
+
+    @dbus.service.signal(dbus_interface=portal_impl_settings_iface,
+                         signature='ssv')
+    def SettingChanged(self, namespace, key, value):
+        logging.debug('signaling SettingChanged(%r, %r, %r)' % (
+            namespace, key, value))
+
+
+class SettingsBackend(object):
+    _schemas = ('org.gnome.desktop.interface', 'org.x.apps.portal')
+    _key = 'color-scheme'
+
+    def __init__(self):
+        # XXX install my own gsettings schema if below isn't found
+        schema_source = Gio.SettingsSchemaSource.get_default()
+
+        self._gs = None
+        for schema in self._schemas:
+            if self._gs is None and schema_source.lookup(schema, True):
+                logging.debug('found GSettings schema %s' % (schema,))
+                self._gs = Gio.Settings.new(schema)
+
+        if self._gs is None:
+            print('failed to find a GSettings schema in %s' % (
+                ', '.join(schema)), file=sys.stderr)
+            sys.exit(1)
+
+        self._change_handlers = set()
+        self._gs.connect('changed::%s' % (self._key,), self._on_changed)
+
+    def _numeric(self, val):
+        if val == 'dark' or val == 1:
+            return 1
+        elif val == 'light' or val == 2:
+            return 2
+        return 0
+
+    def _on_changed(self, *args):
+        logging.debug('signaled that GSettings color-scheme changed')
+        for fn in self._change_handlers:
+            fn()
+
+    def handle_color_scheme_changed(self, fn):
+        self._change_handlers.add(fn)
+
+    def get_color_scheme(self):
+        return self._numeric(self._gs.get_enum(self._key))
+
+    def set_color_scheme(self, val):
+        self._gs.set_enum(self._key, self._numeric(val))
+
+
+def main():
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+    parser = argparse.ArgumentParser(
+        description='''An xdg-desktop-portal backend which only
+        implements nothing except the desktop color scheme via
+        gsettings. ''',
+        epilog='''For more information, see
+        https://flatpak.github.io/xdg-desktop-portal/''')
+    parser.add_argument('-c', '--conf', metavar='FILE',
+                        help='path to the configuration file')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='enable extra debugging output')
+    parser.add_argument('-r', '--replace', default=False, action='store_true',
+                        help='replace existing instance')
+
+    args = parser.parse_args()
+    logging.basicConfig(
+        format=(parser.prog.replace('%', '%%') + ': %(levelname)s: %(message)s'),
+        level=(logging.DEBUG if args.verbose else logging.ERROR))
+
+    config = Config(args.conf)
+    backend = SettingsBackend()
+    scheduler = Scheduler(config, backend)  # noqa: F841
+
+    # XXX what happens when this is replaced?
+    session = dbus.SessionBus()
+    bus_name = dbus.service.BusName(portal_impl_service_name, session,
+                                    allow_replacement=True,
+                                    replace_existing=args.replace)
+    service = SettingsPortal(bus_name, backend)  # noqa: F841
+
+    GLib.MainLoop().run()
+
+
+if __name__ == '__main__':
+    main()

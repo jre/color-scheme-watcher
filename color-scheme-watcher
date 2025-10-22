@@ -1,0 +1,431 @@
+#!/usr/bin/env python3
+
+import argparse
+import configparser
+import datetime
+import fcntl
+import logging
+import os
+import signal
+import sys
+
+import Xlib.X
+import Xlib.Xatom
+import Xlib.display
+import Xlib.protocol.request
+import Xlib.rdb
+import dbus
+import dbus.mainloop.glib
+from gi.repository import GLib
+
+
+default_config_file_name = 'color-scheme-watcher.ini'
+default_lock_file_name = '.color-scheme-watcher.lock'
+
+
+class CasePreservingConfigParser(configparser.ConfigParser):
+    # Override the option transformation function to preserve case of
+    # configuration keys, as they are used for X resources. It would
+    # be nice to preserve case while still retaining
+    # case-insensitivity for key lookup, but ConfigParser isn't
+    # written that way.
+    def optionxform(self, optionstr):
+        return optionstr
+
+
+class Config(object):
+    color_count = 16
+    scheme_keys = ('foreground', 'background', 'cursor',
+                   'mouse-foreground', 'mouse-background',
+                   'highlight-foreground', 'highlight-background') + \
+        tuple('color%d' % i for i in range(color_count))
+    schemes = ('light', 'dark')
+
+    def __init__(self, filename_override):
+        self.filename_override = filename_override
+        self.env = {'HOME': os.getenv('HOME')}
+        self.cp = None
+        self.reload()
+
+    def reload(self):
+        self.filename = self.filename_override or \
+            os.path.join(GLib.get_user_config_dir(), default_config_file_name)
+        try:
+            logging.debug('reading config from %s' % (self.filename,))
+            cp = CasePreservingConfigParser(
+                default_section=None,
+                interpolation=configparser.ExtendedInterpolation())
+            with open(self.filename) as fh:
+                cp.read_file(fh)
+            self.cp = cp
+        except Exception:
+            logging.exception('failed to read config from %s' % (
+                self.filename,))
+
+    def _get(self, section, key, default=None):
+        vars = self.env if section == 'general' else None
+        if self.cp is not None and self.cp.has_section(section):
+            return self.cp.get(section, key, vars=vars, fallback=default)
+        else:
+            return default
+
+    def tty_info_dir(self):
+        val = self._get('general', 'tty-info-directory')
+        if not val:
+            logging.error(
+                'missing general:tty-info-directory setting in %s' % (
+                    self.filename,))
+        return val
+
+    def default_scheme(self):
+        scheme = self._get('general', 'default-color-scheme', 'light')
+        if scheme not in self.schemes:
+            logging.error('invalid default-color-scheme: %s' % (scheme,))
+            scheme = 'light'
+        return scheme
+
+    def get_color_scheme(self, scheme):
+        if scheme == 'default':
+            scheme = self.default_scheme()
+        if scheme not in self.schemes:
+            logging.error('invalid color scheme: %s' % (scheme,))
+            return {}
+        return {key: self._get(scheme, key, '')
+                for key in self.scheme_keys}
+
+    def get_resources(self, scheme):
+        if self.cp is not None and self.cp.has_section('x-resources'):
+            return self.cp.items('x-resources',
+                                 vars=self.get_color_scheme(scheme))
+        else:
+            return ()
+
+
+# This was adapted from StoreProperty() in xorg xrdb xrdb.c and
+# get_full_property() and get_full_text_property() in python-xlib
+# Xlib/xobject/drawable.py
+def x_store_property(win, property, data):
+    data = data.encode('ascii')
+    maxlen = (win.display.info.max_request_length << 2) - \
+        Xlib.protocol.request.ChangeProperty._request.static_size
+
+    mode = Xlib.X.PropModeReplace
+    if maxlen >= len(data):
+        win.change_property(property, Xlib.Xatom.STRING, 8, data,
+                            mode=mode)
+    else:
+        off = 0
+        win.display.grab_server()
+        try:
+            while off < len(data) - 1:
+                win.change_property(property, Xlib.Xatom.STRING, 8,
+                                    data[off:off + maxlen], mode=mode)
+                mode = Xlib.X.PropModeAppend
+                off += maxlen
+        finally:
+            win.display.ungrab_server()
+
+
+# https://www.xfree86.org/current/ctlseqs.html
+class CompatEscaper(object):
+    # XTerm Operating System Controls Set Text Parameter sequence:
+    #   ESC ] <number> ; <param> BEL
+    osc_stp_tmpl = b'\x1b]%d;%s\x07'
+
+    # numeric code for the Change Color Number escape
+    change_colors_cmd = 4
+    color_pair_tmpl = b'%d:%s'
+
+    # escapes which are simply a numeric code and a value from
+    # config.get_color_scheme()
+    simple_cmds = {
+        10: b'foreground',
+        11: b'background',
+        12: b'cursor',
+        13: b'mouse-foreground',
+        14: b'mouse-background',
+        17: b'highlight-background',
+        19: b'highlight-foreground',
+    }
+
+    def _get_simple(self, vars):
+        return b''.join(self.osc_stp_tmpl % (code, vars[key])
+                        for code, key in self.simple_cmds.items()
+                        if len(vars[key]))
+
+    def _get_colors(self, vars, count):
+        pairs = [self.color_pair_tmpl % (i, vars[b'color%d' % i])
+                 for i in range(count)
+                 if len(vars[b'color%d' % i])]
+        if len(pairs):
+            return self.osc_stp_tmpl % (
+                self.change_colors_cmd, b''.join(pairs))
+        return b''
+
+    def get(self, config, scheme):
+        vars = dict((k.encode('ascii'), v.encode('ascii'))
+                    for k, v in config.get_color_scheme(scheme).items())
+        return self._get_simple(vars) + \
+            self._get_colors(vars, config.color_count)
+
+
+class XTermEscaper(CompatEscaper):
+    # XTerm Operating System Controls Set Text Parameter sequence:
+    #   ESC ] 1 0 ; <fg> ; <bg> ; <curs> ; <mouse-fg> ; <mouse-bg>
+    #   ; ; ; <hilite-bg> ; ; <hilite-fg> BEL
+    xterm_osc_stp_simple_tmpl = b'\x1b]10;' + \
+        b'%(foreground)s;%(background)s;%(cursor)s;' + \
+        b'%(mouse-foreground)s;%(mouse-background)s;;;' + \
+        b'%(highlight-background)s;;%(highlight-foreground)s\x07'
+
+    def _get_simple(self, vars):
+        return self.xterm_osc_stp_simple_tmpl % vars
+
+
+class TermColorScheme(object):
+    escapers = {
+        'XTerm': XTermEscaper(),
+        'Rxvt': CompatEscaper(),
+        'URxvt': CompatEscaper(),
+    }
+
+    def __init__(self, config):
+        self.config = config
+        self.display = Xlib.display.Display()
+        self.screen = self.display.screen()
+        self.last_scheme = None
+
+    def update_resources(self, scheme):
+        mgr = Xlib.Xatom.RESOURCE_MANAGER
+        prop = self.screen.root.get_full_property(mgr, Xlib.Xatom.STRING)
+        db = Xlib.rdb.ResourceDB(string=prop.value.decode())
+        for key, val in self.config.get_resources(scheme):
+            db.insert(key, val)
+            logging.debug('setting resource %s: %s' % (key, val))
+        x_store_property(self.screen.root, mgr, db.output())
+
+    def current_windows(self):
+        def child_windows(parent):
+            for child in parent.query_tree().children:
+                cls = child.get_wm_class()
+                if cls is not None and cls[1] in self.escapers:
+                    ids.add(child.id)
+                    types[child.id] = cls[1]
+                child_windows(child)
+        ids = set()
+        types = dict()
+        child_windows(self.screen.root)
+        logging.debug('queried windows: %s' % (
+            ' '.join(['%s:%d' % (types[i], i) for i in sorted(ids)])))
+        return ids, types
+
+    def read_id_file(self, filename):
+        tty = None
+        win = None
+        with open(filename) as fh:
+            for line in fh.readlines():
+                if '=' not in line:
+                    continue
+                key, val = (i.strip() for i in line.rstrip('\n').split('=', 1))
+                if key == 'tty':
+                    tty = val
+                elif key == 'win':
+                    win = int(val, 10)
+        logging.debug('read tty %s and window %s from %s' % (
+            tty, win, filename))
+        return (tty, win)
+
+    def get_ttys(self, windows, types):
+        id_dir = self.config.tty_info_dir()
+        if not id_dir or not os.path.isdir(id_dir):
+            return ()
+        ttys = []
+        for name in os.listdir(id_dir):
+            if name.startswith('.'):
+                continue
+            good = False
+            filename = os.path.join(id_dir, name)
+            try:
+                tty, win = self.read_id_file(filename)
+                if tty and os.path.exists(tty) and win in windows:
+                    good = True
+                    ttys.append((tty, types[win]))
+            except Exception:
+                logging.exception('failed to read %s' % (filename,))
+            if not good:
+                try:
+                    os.unlink(filename)
+                    logging.info('removed %s' % (filename,))
+                except Exception:
+                    pass
+        return ttys
+
+    def update_ttys(self, scheme):
+        for tty, kind in self.get_ttys(*self.current_windows()):
+            try:
+                with open(tty, 'wb') as fh:
+                    fh.write(self.escapers[kind].get(self.config, scheme))
+                logging.debug('wrote %s escapes to tty %s' % (kind, tty))
+            except Exception:
+                logging.exception('error writing to %s' % (tty,))
+
+    def update(self, scheme, sync=False):
+        default_scheme = self.config.default_scheme()
+        logging.debug('update requested=%s last=%s default=%s at %s' % (
+            'last' if scheme is None else scheme,
+            self.last_scheme, default_scheme,
+            datetime.datetime.now().ctime()))
+        if scheme is None:
+            scheme = self.last_scheme
+            logging.debug('re-applying scheme %s' % (scheme,))
+        elif scheme == self.last_scheme or (
+            scheme == 'default' and self.last_scheme == default_scheme) or (
+                scheme == default_scheme and self.last_scheme == 'default'):
+            logging.debug('skipping update for unchanged scheme')
+            self.last_scheme = scheme
+            return
+        else:
+            logging.debug('setting scheme to %s' % (scheme,))
+
+        try:
+            self.update_resources(scheme)
+            if sync:
+                self.display.sync()
+        except Exception:
+            logging.exception('failed to update X resources')
+            sys.exit(1)
+
+        try:
+            self.update_ttys(scheme)
+            self.last_scheme = scheme
+        except Exception:
+            logging.exception('failed to update ttys')
+
+
+class DBusWatcher(object):
+    dest_portal = 'org.freedesktop.portal.Desktop'
+    portal_path = '/org/freedesktop/portal/desktop'
+    settings_iface = 'org.freedesktop.portal.Settings'
+    settings_signal = 'SettingChanged'
+    scheme_group = 'org.freedesktop.appearance'
+    scheme_key = 'color-scheme'
+
+    def __init__(self, config):
+        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+        self.config = config
+        self.terms = TermColorScheme(config)
+        self.session = dbus.SessionBus()
+        self.settings = dbus.Interface(
+            self.session.get_object(self.dest_portal, self.portal_path),
+            dbus_interface=self.settings_iface)
+
+    def scheme_name(self, numeric):
+        if numeric == 1:
+            return 'dark'
+        elif numeric == 2:
+            return 'light'
+        else:
+            return 'default'
+
+    def signaled_update(self, group, key, value):
+        self.terms.update(self.scheme_name(value))
+
+    def reload_signal(self, sig, frame):
+        logging.info('SIGHUP received, reloading configuration')
+        self.config.reload()
+        self.terms.update(None)
+
+    def read_current(self):
+        return self.scheme_name(self.settings.Read(
+            self.scheme_group, self.scheme_key))
+
+    def loop(self):
+        signal.signal(signal.SIGHUP, self.reload_signal)
+
+        self.terms.update(self.read_current())
+
+        self.settings.connect_to_signal(
+            self.settings_signal, self.signaled_update,
+            arg0=self.scheme_group, arg1=self.scheme_key)
+
+        GLib.MainLoop().run()
+
+
+class SchemeSource(object):
+    def __init__(self, value):
+        if value.lower() == 'default':
+            self.value = 'default'
+        elif value.lower() in ('dark', 'prefer-dark', 'night'):
+            self.value = 'dark'
+        elif value.lower() in ('light', 'prefer-light', 'day'):
+            self.value = 'light'
+        elif value.lower() in ('current', 'desktop', 'system', 'dbus'):
+            self.value = 'current'
+        else:
+            raise argparse.ArgumentTypeError(
+                'invalid color scheme source: %s' % (value,))
+
+    def get(self, parser, config):
+        if self.value == 'current':
+            return DBusWatcher(config).read_current()
+        return self.value
+
+
+def flock_or_die(name):
+    lockpath = os.path.join(GLib.get_user_cache_dir(), default_lock_file_name)
+    fd = os.open(lockpath, (os.O_CREAT | os.O_CLOEXEC | os.O_RDWR), 0o600)
+    try:
+        fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print('error: another copy of %s is already running' % (name,),
+              file=sys.stderr)
+        sys.exit(1)
+
+
+def main():
+    desc = 'Watch for desktop color scheme changes and apply to xterm or rxvt.'
+    epilog = '''
+The SOURCE argument for --once or --resources must be one of:
+  current               desktop environment's current color scheme
+  default               the default (usually light) color scheme
+  light                 the light color scheme
+  dark                  the dark color scheme
+'''
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=desc.strip(),
+        epilog=epilog.strip())
+    parser.add_argument('-c', '--conf', metavar='FILE',
+                        help='path to the configuration file')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='enable extra debugging output')
+    parser.add_argument('--once', type=SchemeSource, metavar='SOURCE',
+                        help='set color scheme once to SOURCE and exit')
+    parser.add_argument('--resources', type=SchemeSource, metavar='SOURCE',
+                        help='output X11 resources for SOURCE and exit')
+
+    args = parser.parse_args()
+    logging.basicConfig(
+        format=parser.prog.replace('%', '%%') + ': %(levelname)s: %(message)s',
+        level=(logging.DEBUG if args.verbose else logging.ERROR))
+    config = Config(args.conf)
+    if not config.tty_info_dir():
+        parser.error('failed to read configuration file %s' % (
+            config.filename,))
+
+    if args.resources:
+        scheme = args.resources.get(parser, config)
+        res = dict(config.get_resources(scheme))
+        print('\n'.join('%s: %s' % (k, res[k]) for k in sorted(res.keys())))
+    elif args.once:
+        scheme = args.once.get(parser, config)
+        TermColorScheme(config).update(scheme, sync=True)
+    else:
+        flock_or_die(parser.prog)
+        dw = DBusWatcher(config)
+        dw.loop()
+
+
+if __name__ == '__main__':
+    main()
