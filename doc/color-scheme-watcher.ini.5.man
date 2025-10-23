@@ -1,0 +1,196 @@
+.\" Copyright (c) 2025 Joshua R. Elsasser.
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd October 23, 2025
+.Dt COLOR-SCHEME-WATCHER.INI 5
+.Os
+.Sh NAME
+.Nm color-scheme-watcher.ini
+.Nd configuration file for the
+.Xr color-scheme-watcher 1
+program
+.Sh DESCRIPTION
+The
+.Nm
+file provides configuration for the
+.Xr color-scheme-watcher 1
+program.
+.Pp
+The file is in the INI format and consists of lines which are either
+empty, begin with a # or ; character to indicate a comment, contain a
+section header enclosed in [ ] characters, or contain a key/value pair
+separated by either a = or : character.
+A section header must come before any key/value pair.
+Configuration keys are case-sensitive.
+Within a configuration value, other values may be substituted using
+the ${section:key} syntax.
+If the section name and : are omitted then it will either refer to a
+key in the same section, or to special section-specific configuration
+keys.
+.Pp
+The
+.Cm general
+section contains general configuration options.
+The
+.Ev HOME
+environment variable is available for variable substitution.
+The
+following configuration keys are recognized:
+.Bl -tag -width Ds
+.It Cm tty-info-directory
+Defines the path to a directory containing tty info files.
+Each file should contain two lines:
+.Ql win=$WINDOWID
+and
+.Ql tty=$(tty) .
+Filenames beginning with a dot are ignored.
+The
+.Xr color-scheme-watcher 1
+program will remove invalid or stale files whenever it sets the
+terminal emulator colors, as long as their name does not begin with a
+dot.
+.El
+.Pp
+The
+.Cm light
+and
+.Cm dark
+sections contains color definitions for light and dark mode.
+The following configuration keys are recognized:
+.sp
+.Bl -tag -width highlight-foreground -compact
+.It Cm foreground
+text foreground color
+.It Cm background
+text background color
+.It Cm cursor
+background color of the text cursor
+.It Cm mouse-foreground
+mouse pointer body color
+.It Cm mouse-background
+mouse pointer outline color
+.It Cm highlight-foreground
+highlighted text foreground color
+.It Cm highlight-background
+highlighted text background color
+.It Cm color0
+normal black (pure black)
+.It Cm color1
+normal red
+.It Cm color2
+normal green
+.It Cm color3
+normal yellow
+.It Cm color4
+normal blue
+.It Cm color5
+normal magenta
+.It Cm color6
+normal cyan
+.It Cm color7
+white (light grey)
+.It Cm color8
+bright black (dark grey)
+.It Cm color9
+bright red
+.It Cm color10
+bright green
+.It Cm color11
+bright yellow
+.It Cm color12
+bright blue
+.It Cm color13
+bright magenta
+.It Cm color14
+bright cyan
+.It Cm color15
+bright white (pure white)
+.El
+.Pp
+The
+.Cm x-resources
+section contains arbitrary X resources which will be set in the X
+resource database whenever a color scheme is applied.
+All of the configuration keys from either the
+.Cm light
+or
+.Cm dark
+section are available for variable substitution if the section name is
+omitted.
+.Sh ENVIRONMENT
+.Bl -tag -width HOME
+.It Ev HOME
+substituted if used in configuration values, especially useful for
+.Cm tty-info-directory
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa $XDG_CONFIG_HOME/color-scheme-watcher.ini
+default configuration file location if the
+.Fl c
+or
+.Fl \-conf
+options are not used.
+If the
+.Ev XDG_CONFIG_HOME
+environment variable is not set then the file should be located in the
+.Pa $HOME/.config/
+directory.
+.El
+.Sh EXAMPLES
+This is a basic configuration file which alternates between a
+black-on-white and white-on-black color scheme:
+.Bd -literal -offset Ds
+[general]
+tty-info-directory =        ${HOME}/.saved-xterm-ttys
+
+[light]
+foreground =                #000000
+background =                #ffffff
+cursor =                    #000000
+mouse-foreground =          #000000
+mouse-background =          #ffffff
+highlight-foreground =      #ffffff
+highlight-background =      #000000
+
+[dark]
+foreground =                #ffffff
+background =                #000000
+cursor =                    #ffffff
+mouse-foreground =          #ffffff
+mouse-background =          #000000
+highlight-foreground =      #000000
+highlight-background =      #ffffff
+
+[x-resources]
+XTerm*dynamicColors =       true
+XTerm*highlightColorMode =  true
+*background =               ${background}
+*foreground =               ${foreground}
+*cursorColor =              ${cursor}
+*pointerColorBackground =   ${mouse-background}
+*pointerColorForeground =   ${mouse-foreground}
+*highlightColor =           ${highlight-background}
+*highlightTextColor =       ${highlight-foreground}
+.Ed
+.Sh SEE ALSO
+.Xr color-scheme-watcher 1 ,
+.Xr xterm 1 ,
+.Xr rxvt 7 ,
+.Xr urxvt 7
+.Sh AUTHORS
+The
+.Xr color-scheme-watcher 1
+program was written by
+.An Joshua Elsasser Aq Mt joshua@elsasser.org .

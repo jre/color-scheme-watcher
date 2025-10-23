@@ -1,0 +1,198 @@
+.\" Copyright (c) 2025 Joshua R. Elsasser.
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd October 23, 2025
+.Dt COLOR-SCHEME-WATCHER 1
+.Os
+.Sh NAME
+.Nm color-scheme-watcher
+.Nd Watch for desktop color scheme changes and apply to xterm or rxvt
+.Sh SYNOPSIS
+.Nm
+.Op Fl hv
+.Op Fl c Ar FILE
+.Op Fl \-once Ar SOURCE
+.Op Fl \-resources Ar SOURCE
+.Sh DESCRIPTION
+The
+.Nm
+program connects to an XDG Desktop Portal implementation via the
+.Xr dbus-daemon 1
+as well as to the X Window System server.
+When a change is detected in the Settings portal color-scheme value
+then Operating System Controls Set Text Parameters escape sequences
+will be written to the tty device of any detected
+.Xr xterm 1
+or
+.Xr rxvt 1
+instances.
+The shell will need to be configured to save the tty path and
+.Ev WINDOWID
+variable.
+Example The X resource database will additionally be updated so that
+new terminal emulator instances will use the current color-scheme.
+.Pp
+The terminal emulator will need to be configured to interpret the
+escape sequences, as well as to allow custom hilight colors.
+For
+.Xr xterm 1
+this may be achieved by adding the following to the
+.Pa ~/.Xresources
+file:
+.Bd -literal -offset Ds
+XTerm*dynamicColors = true
+XTerm*highlightColorMode = true
+.Ed
+.Pp
+The
+.Nm
+program requires a configation file,
+.Xr color-scheme-watcher.ini 5
+to run.
+The default configuration file location may be overriden with the
+.Fl c
+or
+.Fl \-conf
+options.
+.Nm
+re-reads its configuration file when a
+.Dv SIGHUP
+signal is recieved.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Xo Fl c Ar FILE
+.Fl \-conf Ar FILE
+.Xc
+Specify an alternate path to the configuration file.
+.It Fl h
+Output a usage message and exit.
+.It Fl \-once Ar SOURCE
+Set terminal emulator color scheme once to
+.Ar SOURCE
+and exit.
+.It Fl \-resources Ar SOURCE
+Output X resources for
+.Ar SOURCE
+and exit.
+.It Fl v
+Enable extra debugging messages to standard error.
+.El
+.Pp
+The
+.Ar SOURCE
+argument for
+.Fl \-once
+or
+.Fl \-resources
+must be one of:
+.Bl -tag -width defaultXX -offset Ds -compact
+.It Cm current
+current Settings Portal color-scheme value.
+.It Cm dark
+the light color scheme
+.It Cm default
+the default (usually light) color scheme
+.It Cm light
+the light color scheme
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width XDG_CONFIG_HOME
+.It Ev DBUS_SESSION_BUS_ADDRESS
+the address used to connect to the
+.Xr dbus-daemon 1 .
+.It Ev DISPLAY
+the display name used when connecting to the
+.Xr X 7
+server.
+.It Ev HOME
+used to locate the configuration and lock files if the XDG variables
+are not set.
+.It Ev XDG_CACHE_HOME
+if set, the lock file will be created in this directory.
+.It Ev XDG_CONFIG_HOME
+if set, the default configuration file should be located here.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa $XDG_CONFIG_HOME/color-scheme-watcher.ini
+default configuration file location if the
+.Fl c
+or
+.Fl \-conf
+options are not used.
+If the
+.Ev XDG_CONFIG_HOME
+environment variable is not set then the file should be located in the
+.Pa $HOME/.config/
+directory.
+.It Pa $XDG_CACHE_HOME/.color-scheme-watcher.lock
+lock file used to prevent multiple of instances of
+.Nm
+from starting.
+If the
+.Ev XDG_CACHE_HOME
+environment variable is not set then the file will be created in the
+.Pa $HOME/.cache/
+directory.
+.El
+.Sh EXAMPLES
+Ensure any terminal emulators which start before
+,Nm
+use the default color scheme:
+.Dl $ color-scheme-watcher --resources default >> ~/.Xresources
+.Pp
+Update all known terminal emulators to the current color-scheme:
+.Dl $ color-scheme-watcher --once current
+Note that if
+.Nm
+is already running then this may also be achieved with:
+.Dl $ pkill -HUP -f color-scheme-watcher
+.Pp
+The following shell fragment may be placed in a a file such as
+.Pa ~/.profile
+to save the terminal emulator's tty device and
+.Ev WINDOWID
+variable for use by
+.Nm :
+.Bd -literal -offset XXXX
+# save xterm tty and window ID for use by color-scheme-watcher
+case "$TERM" in
+    xterm*|rxvt*)
+    if [ -n "$WINDOWID" ] && tty -s; then
+        mkdir -p ~/.saved-xterm-ttys
+        (echo "win=$WINDOWID"; echo "tty=$(tty)") \\
+	    > ~/.saved-xterm-ttys/.$$
+        mv ~/.saved-xterm-ttys/.$$ ~/.saved-xterm-ttys/$$
+        trap "rm -f ~/.saved-xterm-ttys/$$" EXIT
+    fi
+    ;;
+esac
+.Ed
+.Sh SEE ALSO
+.Xr color-scheme-watcher.ini 5 ,
+.Lk https://flatpak.github.io/xdg-desktop-portal/
+.Sh AUTHORS
+The
+.Nm
+program was written by
+.An Joshua Elsasser Aq Mt joshua@elsasser.org .
+.Sh CAVEATS
+The
+.Nm
+program writes escape sequences directly to the terminal emulator's
+tty device.
+If a program running under the terminal emulator is already writing an
+escape sequence then both sequences may be misinterpreted, with
+unknown consequences.
