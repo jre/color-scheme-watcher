@@ -8,3 +8,6 @@ Type=dbus
 BusName=org.freedesktop.impl.portal.desktop.schemer
 ExecStart=%h/bin/xdg-desktop-portal-schemer -v
 ExecReload=kill -HUP $MAINPID
+
+[Install]
+WantedBy=default.target

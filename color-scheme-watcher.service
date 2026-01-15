@@ -8,3 +8,6 @@ After=graphical-session.target xdg-desktop-portal.service
 Type=exec
 ExecStart=%h/bin/color-scheme-watcher -v
 ExecReload=kill -HUP $MAINPID
+
+[Install]
+WantedBy=default.target
