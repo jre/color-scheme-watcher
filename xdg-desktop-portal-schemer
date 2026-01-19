@@ -622,6 +622,26 @@ class SettingsBackend(object):
         self._gs.set_enum(self._key, self._numeric(val))
 
 
+def dump_schedule(config_path, out):
+    def fmt(arg):
+        mode, when = arg
+        if when.hour == 0 and when.minute == 0 and when.second == 0:
+            return mode
+        if when.microsecond >= 500000 and \
+           (when.hour != 23 or when.minute != 59 or when.second != 59):
+            when += datetime.timedelta(seconds=1)
+        when = when.replace(microsecond=0)
+        return '%s %s' % (when.strftime('%H:%M:%S'), mode)
+
+    rules = Parser().load(config_path)
+    year = datetime.datetime.now().year
+    day = datetime.date(year, 1, 1)
+    while day.year == year:
+        sched = '  -  '.join(map(fmt, rules.schedule_for_day(day)))
+        print(day.strftime('%b %e'), sched, file=out)
+        day += datetime.timedelta(days=1)
+
+
 def main():
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
@@ -637,6 +657,8 @@ def main():
                         help='enable extra debugging output')
     parser.add_argument('-r', '--replace', default=False, action='store_true',
                         help='replace existing instance')
+    parser.add_argument('--dump-schedule', default=False, action='store_true',
+                        help='Dump the configured schedule for the year')
 
     args = parser.parse_args()
     logging.basicConfig(
@@ -644,6 +666,10 @@ def main():
         level=(logging.DEBUG if args.verbose else logging.ERROR))
     config_path = args.conf or \
         os.path.join(GLib.get_user_config_dir(), default_config_file_name)
+
+    if args.dump_schedule:
+        dump_schedule(config_path, sys.stdout)
+        return
 
     backend = SettingsBackend()
     scheduler = Scheduler(config_path, backend)  # noqa: F841
