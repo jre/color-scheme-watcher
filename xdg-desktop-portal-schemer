@@ -464,7 +464,7 @@ class Scheduler(object):
                 self._config_path,))
 
     def _handle_sighup(self, sig, frame):
-        self._reload_config(self)
+        self._reload_config()
         self._scheduled_update('reload')
 
     def _handle_sigalrm(self, sig, frame):
