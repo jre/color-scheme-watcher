@@ -54,31 +54,6 @@ class Range:
     def max(self, max):
         return self.last if self.first <= self.last else max
 
-    def split(self, min, max):
-        if self.first <= self.last:
-            return [self]
-        return [Range(min, self.last), Range(self.first, max)]
-
-    def _diff(self, other):
-        if other.first >= self.last or other.last <= self.first:
-            return [self]
-        res = []
-        if other.first != self.first and other.first in self:
-            res.append(Range(self.first, other.first))
-        if other.last != self.last and other.last in self:
-            res.append(Range(other.last, self.last))
-        return res
-
-    def difference(self, others, min, max):
-        parts = self.split(min, max)
-        for other in others:
-            for o in other.split(min, max):
-                newparts = []
-                for s in parts:
-                    newparts.extend(s._diff(o))
-                parts = newparts
-        return parts
-
 
 class WrapTime(datetime.time):
     def __to_secs(self, t):
