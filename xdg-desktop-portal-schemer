@@ -495,6 +495,7 @@ class SettingsPortal(dbus.service.Object):
         self._scheme = None
         self._save_scheme()
         backend.handle_color_scheme_changed(self._backend_changed)
+        self._backend_changed(force=True)
 
     def _save_scheme(self):
         newval = self._backend.get_color_scheme()
@@ -508,8 +509,8 @@ class SettingsPortal(dbus.service.Object):
     def _get_scheme(self, variant_level=0):
         return dbus.UInt32(self._scheme, variant_level=variant_level)
 
-    def _backend_changed(self):
-        if self._save_scheme():
+    def _backend_changed(self, force=False):
+        if self._save_scheme() or force:
             self.SettingChanged(
                 self._namespace, self._color_scheme, self._get_scheme(1))
 
