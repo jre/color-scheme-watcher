@@ -356,11 +356,14 @@ class DBusWatcher(object):
     def loop(self):
         signal.signal(signal.SIGHUP, self.reload_signal)
 
-        self.terms.update(self.read_current())
-
         self.settings.connect_to_signal(
             self.settings_signal, self.signaled_update,
             arg0=self.scheme_group, arg1=self.scheme_key)
+
+        try:
+            self.terms.update(self.read_current())
+        except Exception:
+            logging.exception('failed to read current color scheme')
 
         GLib.MainLoop().run()
 
