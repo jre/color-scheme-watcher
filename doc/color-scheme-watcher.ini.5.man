@@ -1,4 +1,4 @@
-.\" Copyright (c) 2025 Joshua R. Elsasser.
+.\" Copyright (c) 2025-2026 Joshua R. Elsasser.
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +12,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd October 23, 2025
+.Dd January 20, 2026
 .Dt COLOR-SCHEME-WATCHER.INI 5
 .Os
 .Sh NAME
@@ -133,20 +133,6 @@ omitted.
 .It Ev HOME
 substituted if used in configuration values, especially useful for
 .Cm tty-info-directory
-.El
-.Sh FILES
-.Bl -tag -width Ds
-.It Pa $XDG_CONFIG_HOME/color-scheme-watcher.ini
-default configuration file location if the
-.Fl c
-or
-.Fl \-conf
-options are not used.
-If the
-.Ev XDG_CONFIG_HOME
-environment variable is not set then the file should be located in the
-.Pa $HOME/.config/
-directory.
 .El
 .Sh EXAMPLES
 This is a basic configuration file which alternates between a

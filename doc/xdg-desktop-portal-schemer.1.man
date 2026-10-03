@@ -1,0 +1,110 @@
+.\" Copyright (c) 2026 Joshua R. Elsasser.
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd January 20, 2026
+.Dt XDG-DESKTOP-PORTAL-SCHEMER 1
+.Os
+.Sh NAME
+.Nm xdg-desktop-portal-schemer
+.Nd An xdg-desktop-portal backend for color scheme scheduling
+.Sh SYNOPSIS
+.Nm
+.Op Fl hv
+.Op Fl c Ar FILE
+.Op Fl \-dump-schedule
+.Op Fl \-replace
+.Sh DESCRIPTION
+The
+.Nm
+program provides a minimal implementation of the Setting portal
+interface for an XDG Desktop Portal implementation, specifically for
+the desktop color-scheme.
+.Pp
+When run without a configuration file,
+.Nm
+will simply provide the value of the color-scheme key in the
+.Xr gsettings 1
+org.gnome.desktop.interface schema. A configuration file may optionally be used 
+
+
+.Pp
+The
+.Nm
+program requires a configation file,
+.Xr xdg-desktop-portal-schemer.conf 5
+to run.
+The default configuration file location may be overriden with the
+.Fl c
+or
+.Fl \-conf
+options.
+.Nm
+re-reads its configuration file when a
+.Dv SIGHUP
+signal is recieved.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Xo Fl c Ar FILE
+.Fl \-conf Ar FILE
+.Xc
+Specify an alternate path to the configuration file.
+.It Fl h
+Output a usage message and exit.
+.It Fl \-dump-schedule
+Output the color scheme schedule for the current year and exit.
+.It Fl \-replace
+Replace and existing instance of
+.Nm .
+.It Fl v
+Enable extra debugging messages to standard error.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width XDG_CONFIG_HOME
+.It Ev DBUS_SESSION_BUS_ADDRESS
+the address used to connect to the
+.Xr dbus-daemon 1 .
+.It Ev HOME
+used to locate the configuration and lock files if the XDG variables
+are not set.
+.It Ev XDG_CACHE_HOME
+if set, the lock file will be created in this directory.
+.It Ev XDG_CONFIG_HOME
+if set, the default configuration file should be located here.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa $XDG_CONFIG_HOME/xdg-desktop-portal-schemer.conf
+default configuration file location if the
+.Fl c
+or
+.Fl \-conf
+options are not used.
+If the
+.Ev XDG_CONFIG_HOME
+environment variable is not set then the file should be located in the
+.Pa $HOME/.config/
+directory.
+.El
+.Sh SEE ALSO
+.Xr xdg-desktop-portal-schemer.conf 5 ,
+.Xr portals.conf 5 ,
+.Xr color-scheme-watcher 1 ,
+.Lk https://flatpak.github.io/xdg-desktop-portal/ ,
+.Lk https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html
+.Sh AUTHORS
+The
+.Nm
+program was written by
+.An Joshua Elsasser Aq Mt joshua@elsasser.org .

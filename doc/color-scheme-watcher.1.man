@@ -1,4 +1,4 @@
-.\" Copyright (c) 2025 Joshua R. Elsasser.
+.\" Copyright (c) 2025-2026 Joshua R. Elsasser.
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +12,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd October 23, 2025
+.Dd January 20, 2026
 .Dt COLOR-SCHEME-WATCHER 1
 .Os
 .Sh NAME
@@ -69,6 +69,11 @@ options.
 re-reads its configuration file when a
 .Dv SIGHUP
 signal is recieved.
+.Pp
+Note that for color scheme changes to be received, an XDG Desktop
+Portal implementation must be running, as well as a backend which
+implements the Settings portal interface, such as
+.Xr xdg-desktop-portal-schemer 1 .
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
@@ -182,6 +187,7 @@ esac
 .Ed
 .Sh SEE ALSO
 .Xr color-scheme-watcher.ini 5 ,
+.Xr xdg-desktop-portal-schemer 1 ,
 .Lk https://flatpak.github.io/xdg-desktop-portal/
 .Sh AUTHORS
 The
