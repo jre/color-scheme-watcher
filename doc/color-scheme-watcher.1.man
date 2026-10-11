@@ -20,10 +20,12 @@
 .Nd Watch for desktop color scheme changes and apply to xterm or rxvt
 .Sh SYNOPSIS
 .Nm
-.Op Fl hv
+.Op Fl hvV
 .Op Fl c Ar FILE
+.Op Fl \-no-autostart
 .Op Fl \-once Ar SOURCE
 .Op Fl \-resources Ar SOURCE
+.Op Fl \-version
 .Sh DESCRIPTION
 The
 .Nm
@@ -40,7 +42,7 @@ instances.
 The shell will need to be configured to save the tty path and
 .Ev WINDOWID
 variable.
-Example The X resource database will additionally be updated so that
+The X resource database will additionally be updated so that
 new terminal emulator instances will use the current color-scheme.
 .Pp
 The terminal emulator will need to be configured to interpret the
@@ -81,6 +83,9 @@ The options are as follows:
 .Fl \-conf Ar FILE
 .Xc
 Specify an alternate path to the configuration file.
+.It Fl \-no-autostart
+Do not automatically start the XDG Desktop Portal program on startup
+when it is not running.
 .It Fl h
 Output a usage message and exit.
 .It Fl \-once Ar SOURCE
@@ -91,8 +96,12 @@ and exit.
 Output X resources for
 .Ar SOURCE
 and exit.
-.It Fl v
+.It Fl v Fl \-verbose
 Enable extra debugging messages to standard error.
+.It Fl V Fl \-version
+Output the version number of
+.Nm
+and exit.
 .El
 .Pp
 The
@@ -108,7 +117,7 @@ current Settings Portal color-scheme value.
 .It Cm dark
 the light color scheme
 .It Cm default
-the default (usually light) color scheme
+the configured default color scheme
 .It Cm light
 the light color scheme
 .El

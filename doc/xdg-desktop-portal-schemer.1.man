@@ -20,10 +20,11 @@
 .Nd An xdg-desktop-portal backend for color scheme scheduling
 .Sh SYNOPSIS
 .Nm
-.Op Fl hv
+.Op Fl hrvV
 .Op Fl c Ar FILE
 .Op Fl \-dump-schedule
 .Op Fl \-replace
+.Op Fl \-version
 .Sh DESCRIPTION
 The
 .Nm
@@ -41,9 +42,9 @@ org.gnome.desktop.interface schema. A configuration file may optionally be used
 .Pp
 The
 .Nm
-program requires a configation file,
+program is configured via the
 .Xr xdg-desktop-portal-schemer.conf 5
-to run.
+file.
 The default configuration file location may be overriden with the
 .Fl c
 or
@@ -64,11 +65,15 @@ Specify an alternate path to the configuration file.
 Output a usage message and exit.
 .It Fl \-dump-schedule
 Output the color scheme schedule for the current year and exit.
-.It Fl \-replace
+.It Fl r Fl \-replace
 Replace and existing instance of
 .Nm .
-.It Fl v
+.It Fl v Fl \-version
 Enable extra debugging messages to standard error.
+.It Fl V Fl \-version
+Output the version number of
+.Nm
+and exit.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width XDG_CONFIG_HOME
