@@ -1,0 +1,231 @@
+# Copyright (c) 2026 Joshua R. Elsasser.
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+%requires packcc >= 3.1.0
+
+%value "struct parse_node *"
+%auxil "struct parse_state *"
+
+%header {
+struct parse_node;
+struct parse_state;
+}
+
+%source {
+
+#include "parser.h"
+
+#define PCC_GETCHAR(a)		(getc((a)->stream))
+#define PCC_ERROR(a)		(parse_error((a), -1, -1))
+#define PCC_MALLOC(_, s)	(g_malloc((s)))
+#define PCC_REALLOC(_, p, s)	(g_realloc((p), (s)))
+#define PCC_FREE(_, p)		(g_free((p)))
+#ifdef PARSE_GRAMMAR_DBG
+#  define PCC_DEBUG(_, ev, rul, lvl, pos, buf, len) \
+	(parse_dbg((ev), (rul), (lvl), (pos), (buf), (len)))
+#endif
+
+#define CAPTURE_0s		((ssize_t)pcc_capture__0s)
+#define MARKER_I(v) \
+	((ssize_t)pcc_marker_variable__integer_on_action(pcc_ctx, v))
+#define NODE_NEW(f, ...) \
+	((auxil->last_line = MARKER_I(line)), \
+	 (auxil->last_col = (CAPTURE_0s - MARKER_I(bol))), \
+	 (f(auxil, __VA_ARGS__)))
+
+#define node_datefmt(s)		NODE_NEW(parse_date_fmt, PARSE_DATE_FMT_##s)
+#define node_scheme(s)		NODE_NEW(parse_scheme, SCHEME_##s)
+#define node_uint(s)		NODE_NEW(parse_uint_str, s)
+#define node_mday(s)		NODE_NEW(parse_mday_str, s)
+#define node_wday(d)		NODE_NEW(parse_wday, WDAY_##d)
+#define node_month(m)		NODE_NEW(parse_month, MONTH_##m)
+#define node_month_str(s)	NODE_NEW(parse_month_str, s)
+#define node_tod(h, m, t)	NODE_NEW(parse_tod, h, m, PARSE_##t)
+#define node_doy(d, m)		NODE_NEW(parse_doy, d, m)
+#define node_todoy(s, e, d)	NODE_NEW(parse_todoy, s, e, d)
+#define node_todoy_list(l, t)	NODE_NEW(parse_todoy_list, l, t)
+#define rule_allday(s)		NODE_NEW(parse_rule_allday, s)
+#define rule_tod(m, s, e)	NODE_NEW(parse_rule_tod, m, s, e)
+#define rule_tow(r, s, e)	NODE_NEW(parse_rule_tow, r, s, e)
+#define rule_toy(r, s, e)	NODE_NEW(parse_rule_toy, r, s, e)
+#define rule_towoy(r, s, e)	NODE_NEW(parse_rule_towoy, r, s, e)
+#define rule_lin(s, l)		NODE_NEW(parse_rule_lin, s, l)
+
+}
+
+%marker @line @bol @bol_ws @rules
+
+root	<- s:stmt		{ $$ = s; }
+	 / .+			{ parse_error(auxil, @line, $0s - @bol); }
+
+# general keywords
+DATE	<- [dD][aA][tT][eE]				wbound
+DAY	<- [dD][aA][yY]					wbound
+FMT	<- [fF][oO][rR][mM][aA][tT]			wbound
+FROM	<- [fF][rR][oO][mM]				wbound
+LINE	<- [lL][iI][nN][eE][aA][rR]			wbound
+MODE	<- [mM][oO][dD][eE]				wbound
+MONTH	<- [mM][oO][nN][tT][hH]				wbound
+ON	<- [oO][nN]					wbound
+SET	<- [sS][eE][tT]					wbound
+THRU	<- [tT][hH][rR][oO][uU][gG][hH]			wbound
+TO	<- [tT][oO]					wbound
+USE	<- [uU][sS][eE]					wbound
+
+# color scheme literals
+DARK	<- [dD][aA][rR][kK]				wbound
+DEF	<- [dD][eE][fF]					wbound
+DEFAULT	<- [dD][eE][fF][aA][uU][lL][tT]			wbound
+LIGHT	<- [lL][iI][gG][hH][tT]				wbound
+NIGHT	<- [nN][iI][gG][hH][tT]				wbound
+
+# time
+AM	<- [aA][mM]					wbound
+PM	<- [pP][mM]					wbound
+
+# weekdays
+SUN	<- [sS][uU][nN] ( [dD][aA][yY] )?		wbound
+MON	<- [mM][oO][nN] ( [dD][aA][yY] )?		wbound
+TUE	<- [tT][uU][eE] ( [sS][dD][aA][yY] )?		wbound
+WED	<- [wW][eE][dD] ( [nN][eE][sS][dD][aA][yY] )?	wbound
+THU	<- [tT][hH][uU] ( [rR][sS][dD][aA][yY] )?	wbound
+FRI	<- [fF][rR][iI] ( [dD][aA][yY] )?		wbound
+SAT	<- [sS][aA][tT] ( [uU][rR][dD][aA][yY] )?	wbound
+
+# months
+JAN	<- [jJ][aA][nN] ( [uU][aA][rR][yY] )?		wbound
+FEB	<- [fF][eE][bB] ( [rR][uU][aA][rR][yY] )?	wbound
+MAR	<- [mM][aA][rR] ( [cC][hH] )?			wbound
+APR	<- [aA][pP][rR] ( [iI][lL] )?			wbound
+MAY	<- [mM][aA][yY]					wbound
+JUN	<- [jJ][uU][nN] ( [eE] )?			wbound
+JUL	<- [jJ][uU][lL] ( [yY] )?			wbound
+AUG	<- [aA][uU][gG] ( [uU][sS][tT] )?		wbound
+SEP	<- [sS][eE][pP] ( [tT][eE][mM][bB][eE][rR] )?	wbound
+OCT	<- [oO][cC][tT] ( [oO][bB][eE][rR] )?		wbound
+NOV	<- [nN][oO][vV] ( [eE][mM][bB][eE][rR] )?	wbound
+DEC	<- [dD][eE][cC] ( [eE][mM][bB][eE][rR] )?	wbound
+
+# whitespace and similar
+nl	<- ( "\r\n" / [\n\r] )	&{ @line++; @bol = @bol_ws = $0e; }
+ws_nonl	<- [ \f\t\v]		&{ if ((size_t)@bol_ws == $0s) @bol_ws = $0e; }
+start	<- 			&{ @@ = ((size_t)@bol_ws == $0s); }
+end	<- ( &nl / !. )
+nonl	<- [^\n\r]
+wbound	<- ![a-zA-Z]
+comment	<- '#' nonl* end
+_	<- ( ws_nonl / comment / nl )*
+
+# symbols
+comma	<- _ ','
+dash	<- _ '-'
+equal	<- _ '='
+slash	<- _ '/'
+
+# settings
+
+set_fmt	<- _ SET _ DATE _ FMT equal
+set	<- set_fmt _ DAY slash _ MONTH		{ $$ = node_datefmt(DM); }
+	 / set_fmt _ MONTH slash _ DAY		{ $$ = node_datefmt(MD); }
+
+# scheduling - leaf nodes
+
+scheme	<- _ ( DEFAULT / DEF )			{ $$ = node_scheme(DEFAULT); }
+	 / _ ( DARK / NIGHT )			{ $$ = node_scheme(DARK); }
+	 / _ ( LIGHT / DAY )			{ $$ = node_scheme(LIGHT); }
+
+hour12	<- _ < '1'[0-2] / '0'?[1-9] >		{ $$ = node_uint($1); }
+hour24	<- _ < '2'[0-3] / [01]?[0-9] >		{ $$ = node_uint($1); }
+min_ns	<-   < [0-5]?[0-9] >			{ $$ = node_uint($1); }
+day31	<- _ < '3'[10] / [12][0-9] / '0'?[1-9] >{ $$ = node_mday($1); }
+day30	<- _ < '30' / [12][0-9] / '0'?[1-9] >	{ $$ = node_mday($1); }
+day28	<- _ < '2'[0-8] / '1'[0-9] / '0'?[1-9] >{ $$ = node_mday($1); }
+
+wday	<- _ SUN				{ $$ = node_wday(SUN); }
+	 / _ MON				{ $$ = node_wday(MON); }
+	 / _ TUE				{ $$ = node_wday(TUE); }
+	 / _ WED				{ $$ = node_wday(WED); }
+	 / _ THU				{ $$ = node_wday(THU); }
+	 / _ FRI				{ $$ = node_wday(FRI); }
+	 / _ SAT				{ $$ = node_wday(SAT); }
+
+mon31_s	<- _ JAN				{ $$ = node_month(JAN); }
+	 / _ MAR				{ $$ = node_month(MAR); }
+	 / _ MAY				{ $$ = node_month(MAY); }
+	 / _ JUL				{ $$ = node_month(JUL); }
+	 / _ AUG				{ $$ = node_month(AUG); }
+	 / _ OCT				{ $$ = node_month(OCT); }
+	 / _ DEC				{ $$ = node_month(DEC); }
+mon30_s	<- _ APR				{ $$ = node_month(APR); }
+	 / _ JUN				{ $$ = node_month(JUN); }
+	 / _ SEP				{ $$ = node_month(SEP); }
+	 / _ NOV				{ $$ = node_month(NOV); }
+mon28_s	<- _ FEB				{ $$ = node_month(FEB); }
+
+mon31_i	<- _ < '1'[02] / [13578] >		{ $$ = node_month_str($1); }
+mon30_i	<- _ < '11' / [469] >			{ $$ = node_month_str($1); }
+mon28_i	<- _ '2'				{ $$ = node_month(FEB); }
+
+# scheduling - composite nodes
+
+tod	<- h:hour12 ':' m:min_ns _ AM		{ $$ = node_tod(h, m, AM); }
+	 / h:hour12 ':' m:min_ns _ PM		{ $$ = node_tod(h, m, PM); }
+	 / h:hour24 ':' m:min_ns		{ $$ = node_tod(h, m, 24H); }
+	 / h:hour12 _ AM			{ $$ = node_tod(h, NULL, AM); }
+	 / h:hour12 _ PM			{ $$ = node_tod(h, NULL, PM); }
+	 / h:hour24				{ $$ = node_tod(h, NULL, 24H); }
+
+doy_dm	<- ( d:day31 slash m:mon31_i
+	   / d:day30 slash m:mon30_i
+	   / d:day28 slash m:mon28_i )		{ $$ = node_doy(d, m); } 
+
+doy_md	<- ( m:mon31_i slash d:day31
+	   / m:mon30_i slash d:day30
+	   / m:mon28_i slash d:day28 )		{ $$ = node_doy(d, m); } 
+
+doy	<- ( m:mon31_s d:day31 / d:day31 m:mon31_s
+	   / m:mon30_s d:day30 / d:day30 m:mon30_s
+	   / m:mon28_s d:day28 / d:day28 m:mon28_s
+	   / &{ @@ = (auxil->date_fmt == PARSE_DATE_FMT_DM); }
+	     ( d:day31 slash m:mon31_i
+	     / d:day30 slash m:mon30_i
+	     / d:day28 slash m:mon28_i )
+	   / &{ @@ = (auxil->date_fmt == PARSE_DATE_FMT_MD); }
+	     ( m:mon31_i slash d:day31
+	     / m:mon30_i slash d:day30
+	     / m:mon28_i slash d:day28 ) )	{ $$ = node_doy(d, m); } 
+
+mode	<- _ USE s:scheme _ MODE		{ $$ = s; }
+
+todoy	<- s:tod _ TO e:tod _ ON d:doy _ comma?	{ $$ = node_todoy(s, e, d); }
+l_todoy	<- ( t:todoy				{ $$ = node_todoy_list($$, t); }
+	   )+
+
+# schedule rules
+
+r_tod	<- m:mode _ FROM s:tod _ TO e:tod	{ $$ = rule_tod(m, s, e); }
+r_tow	<- r:r_tod comma s:wday _ THRU e:wday	{ $$ = rule_tow(r, s, e); }
+r_toy	<- r:r_tod comma s:doy dash e:doy	{ $$ = rule_toy(r, s, e); }
+r_towoy	<- r:r_tow comma s:doy dash e:doy	{ $$ = rule_towoy(r, s, e); }
+	 / r:r_toy comma s:wday _ THRU e:wday	{ $$ = rule_towoy(r, s, e); }
+r_lin	<- m:mode _ LINE l:l_todoy		{ $$ = rule_lin(m, l); }
+
+rule	<- ( r:r_lin / r:r_towoy / r:r_toy / r:r_tow / r:r_tod )
+						{ $$ = r; }
+	 / m:mode				{ $$ = rule_allday(m); }
+
+# toplevel
+stmt	<- start s:set	!{ @@ = @rules; }	{ $$ = s; }
+	 / start r:rule	&{ @rules = 1; }	{ $$ = r; }	
+	 / _+
