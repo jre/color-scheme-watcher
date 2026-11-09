@@ -1,12 +1,12 @@
 [Unit]
 Description=Portal service for color scheme management
-PartOf=graphical-session.target
-After=graphical-session.target
+Requires=dbus.service
+After=dbus.service
 
 [Service]
 Type=dbus
 BusName=org.freedesktop.impl.portal.desktop.schemer
-ExecStart=%h/bin/xdg-desktop-portal-schemer -v
+ExecStart=%SCHEMER_PATH% --replace --verbose
 ExecReload=kill -HUP $MAINPID
 
 [Install]

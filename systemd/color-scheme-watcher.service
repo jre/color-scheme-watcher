@@ -1,13 +1,13 @@
 [Unit]
 Description=Color scheme watcher
 PartOf=graphical-session.target
-Requires=xdg-desktop-portal.service
-After=graphical-session.target xdg-desktop-portal.service
+After=graphical-session.target
 
 [Service]
 Type=exec
-ExecStart=%h/bin/color-scheme-watcher -v
+ExecStart=%WATCHER_PATH% --verbose
 ExecReload=kill -HUP $MAINPID
 
 [Install]
 WantedBy=default.target
+WantedBy=graphical-session.target

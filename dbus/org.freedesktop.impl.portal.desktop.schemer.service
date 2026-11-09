@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.schemer
+Exec=%SCHEMER_PATH%
+SystemdService=xdg-desktop-portal-schemer.service

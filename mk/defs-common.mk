@@ -3,7 +3,20 @@ TOOLDIR = ${TOP}/tools
 TESTDIR = ${TOP}/tests
 OBJDIR ?= ${TOP}/build
 
+PREFIX ?= /usr/local
+ETCDIR ?= /etc
+UNITDIR ?= ${ETCDIR}/systemd/user
+BINDIR ?= ${PREFIX}/bin
+LIBEXECDIR ?= ${PREFIX}/libexec
+MANDIR ?= ${PREFIX}/man
+MAN1DIR ?= ${MANDIR}/man1
+MAN5DIR ?= ${MANDIR}/man5
+SHAREDIR ?=  ${PREFIX}/share
+PORTALDIR ?= ${SHAREDIR}/xdg-desktop-portal/portals
+DBUSDIR ?= ${SHAREDIR}/dbus-1/services
+
 RECURSE_TARGETS = all depend check test regress tests build-tests \
+	install install-watcher install-schemer \
 	distribute dist ${PROGS} ${TEST_NAMES}
 PHONY_TARGETS = ${RECURSE_TARGETS} clean
 
@@ -21,6 +34,14 @@ VERSION_FILE = version.txt
 TEST_LOG = ${OBJDIR}/test-suite.log
 DIST_NAME = color-scheme-watcher-${DIST_VERSION}
 DIST_EXT = tar.gz
+NAME_schemer = xdg-desktop-portal-schemer
+NAME_watcher = color-scheme-watcher
+DBUS_SERVICE = org.freedesktop.impl.portal.desktop.schemer.service
+
+INSTALL_FLAGS ?= -o 0 -g 0
+INSTALL_BIN = install ${INSTALL_FLAGS} -m 555
+INSTALL_DATA = install ${INSTALL_FLAGS} -m 444
+INSTALL_DIR = install -d ${INSTALL_FLAGS} -m 755
 
 PROGS = schemer watcher pcc
 TESTS = datetime ttydb parser scheduler
@@ -48,8 +69,8 @@ CFLAGS_x11 = ${XCB_CFLAGS}
 LDFLAGS_schemer = ${GLIB_LDFLAGS}
 LDFLAGS_watcher = ${GLIB_LDFLAGS} ${XCB_LDFLAGS}
 
-BIN_schemer = ${OBJDIR}/xdg-desktop-portal-schemer
-BIN_watcher = ${OBJDIR}/color-scheme-watcher
+BIN_schemer = ${OBJDIR}/${NAME_schemer}
+BIN_watcher = ${OBJDIR}/${NAME_watcher}
 BIN_pcc = ${OBJDIR}/packcc
 
 SRCS_COMMON = color_scheme.c datetime.c dbus.c log.c notify.c sigsource.c
