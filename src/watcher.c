@@ -61,6 +61,7 @@ static void
 apply_scheme(struct config *conf, struct ttydb *db,
     struct xcb_connection_t *con, enum color_scheme scheme)
 {
+	const struct config_pair *xres;
 	const struct ttyinfo *ti;
 	struct ttydb_iter iter;
 	const char *esc;
@@ -103,7 +104,8 @@ apply_scheme(struct config *conf, struct ttydb *db,
 		close(fd);
 	}
 
-	x11_update_resources(con, config_resources(conf, scheme, &len), len);
+	xres = config_resources(conf, scheme, &len);
+	x11_update_resources(con, xres, len);
 }
 
 static void
