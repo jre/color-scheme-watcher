@@ -1,0 +1,27 @@
+name: Create a release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Install dependencies
+        run: sudo ./tools/install-dependencies.sh
+      - name: Run tests
+        run: make depend && make test
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" --verify-tag --generate-notes \
+             build/color-scheme-watcher-*.tar.gz

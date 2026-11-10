@@ -1,0 +1,23 @@
+name: Run tests
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Install dependencies
+        run: sudo ./tools/install-dependencies.sh
+      - name: Build everything
+        id: build
+        run: make depend && make all build-tests
+      - name: Run tests
+        run: make test
+      - name: Archive test results
+        if: ${{ failure() && steps.build.conclusion == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: build/test-*.log
