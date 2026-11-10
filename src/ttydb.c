@@ -340,6 +340,7 @@ ttyinfo_parse(char **path, char *buf)
 
 	if (good_win && ti->tty_path != NULL)
 		return ti;
+	*path = g_steal_pointer(&(ti->info_path));
 	ttyinfo_free(ti);
 	return NULL;
 }
@@ -404,7 +405,7 @@ ttydb_reload(struct ttydb *db, struct xcb_connection_t *con,
 
 	while ((filename = g_dir_read_name(dir)) != NULL) {
 		if (filename[0] == '.')
-			log_warn("%s: ignoring temp file", filepath);
+			log_warn("%s: ignoring temp file", filename);
 		else {
 			filepath = g_build_path("/", dirpath, filename, NULL);
 			load_info_file(db, &filepath);
