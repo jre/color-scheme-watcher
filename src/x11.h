@@ -17,6 +17,8 @@
 #ifndef _X11UTIL_H
 #define _X11UTIL_H
 
+#include <stdint.h>
+
 #include <glib.h>
 
 struct config_pair;

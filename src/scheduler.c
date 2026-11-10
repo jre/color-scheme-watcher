@@ -70,6 +70,8 @@ rule_match(const struct sched_rule *rule, const struct tm *tm)
 	case SCHED_RULE_LINEAR:
 		return TRUE;
 	}
+	/* silence gcc warning about the impossible */
+	return FALSE;
 }
 
 static dt_tod_t
@@ -150,6 +152,8 @@ rule_time_range(const struct sched_rule *rule, const struct tm *now)
 		return rule_time_range_linear(rule->u.linear.days,
 		    rule->u.linear.count, now);
 	}
+	/* silence gcc warning about the impossible */
+	return time_range_always;
 }
 
 static void

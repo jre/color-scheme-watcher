@@ -26,7 +26,7 @@
 #include "x11.h"
 
 G_STATIC_ASSERT(((x11_window_t)~0)
-    == GPOINTER_TO_INT(GINT_TO_POINTER(((x11_window_t)~0))));
+    == GPOINTER_TO_UINT(GUINT_TO_POINTER(((x11_window_t)~0))));
 
 #define DB_MAIN_ADD(d, t)	g_hash_table_replace((d)->main_hash, \
 	    GINT_TO_POINTER((t)->window), (t))
@@ -127,6 +127,16 @@ ttydb_free(struct ttydb *db)
 	g_free(db);
 }
 
+static gboolean
+timespec_cmp(const struct timespec *a, const struct timespec *b)
+{
+	if (a->tv_sec != b->tv_sec)
+		return (a->tv_sec > b->tv_sec ? 1 : -1);
+	if (a->tv_nsec != b->tv_nsec)
+		return (a->tv_nsec > b->tv_nsec ? 1 : -1);
+	return 0;
+}
+
 static void
 db_add_unvalidated(struct ttydb *db, struct ttyinfo *ti,
     const struct timespec *ctime)
@@ -155,7 +165,7 @@ db_needs_update(struct ttydb *db, const char *filename,
 		log_debug("info file %s not in ttydb", filename);
 		return TRUE;
 	}
-	if (timespeccmp(&ti->info_ctime, ctime, !=)) {
+	if (timespec_cmp(&ti->info_ctime, ctime) != 0) {
 		log_debug("info file %s ctime %lld.%.9ld != %lld.%.9ld",
 		    ti->info_path, (long long)ti->info_ctime.tv_sec,
 		    (long)ti->info_ctime.tv_nsec, (long long)ctime->tv_sec,
@@ -191,7 +201,7 @@ db_add_validated(struct ttydb *db, struct ttyinfo *ti)
 	if ((dup = DB_MAIN_GET(db, ti->window)) != NULL) {
 		log_error("duplicate info files %s and %s for window %u",
 		    dup->info_path, ti->info_path, ti->window);
-		if (timespeccmp(&dup->info_ctime, &ti->info_ctime, >)) {
+		if (timespec_cmp(&dup->info_ctime, &ti->info_ctime) > 0) {
 			db_remove_and_unlink_file(db, ti, NULL, "duplicate");
 			return;
 		}

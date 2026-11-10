@@ -10,7 +10,7 @@ all:
 .for p in ${PROGS}
 ${p}: ${BIN_${p}}
 ${BIN_${p}}: ${OBJS_${p}}
-	${CC} ${LDFLAGS} ${LDFLAGS_${p}} -o $@ ${OBJS_${p}}
+	${CC} ${OBJS_${p}} ${LDFLAGS} ${LDFLAGS_${p}} -o $@
 .endfor
 
 .for t in ${TESTS}

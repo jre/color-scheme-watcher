@@ -23,6 +23,7 @@ PHONY_TARGETS = ${RECURSE_TARGETS} clean
 CC ?= cc
 CFLAGS ?= -O2
 CFLAGS += -Wall -Wextra
+CFLAGS += -Wno-type-limits
 CFLAGS += -Werror
 CFLAGS += -g
 CFLAGS += -iquote ${SRCDIR} -iquote ${OBJDIR} ${GLIB_CFLAGS}

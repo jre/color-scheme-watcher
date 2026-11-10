@@ -204,11 +204,15 @@ flock_or_die(void)
 {
 	struct flock lk;
 	char *path;
-	int fd;
+	int fd, flags;
 
 	path = g_build_path("/", g_get_user_cache_dir(),
 	    WATCHER_DEFAULT_LOCK, NULL);
-	if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_CLOFORK, 0600)) < 0)
+	flags = O_WRONLY|O_CREAT|O_CLOEXEC;
+#ifdef O_CLOFORK
+	flags |= O_CLOFORK;
+#endif
+	if ((fd = open(path, flags, 0600)) < 0)
 		log_fatal("%s: failed to open lockfile", path);
 
 	memset(&lk, 0, sizeof(lk));

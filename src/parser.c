@@ -169,6 +169,7 @@ parse_tod(struct parse_state *state G_GNUC_UNUSED,
 	guint hod, mod;
 
 	g_assert(hour != NULL && hour->type == PARSE_NODE_UINT);
+	hod = 0;		/* silence gcc warning about the impossible */
 	switch (ampm) {
 	case PARSE_AM:
 		hod = (hour->u.uint == 12 ? 0 : hour->u.uint);

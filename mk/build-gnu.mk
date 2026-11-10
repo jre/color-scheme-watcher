@@ -8,7 +8,7 @@ VPATH = ${SRCDIR} ${TOOLDIR} ${TESTDIR}
 define mkprog_rules =
 ${1}: $${BIN_${1}}
 $${BIN_${1}}: $${OBJS_${1}}
-	$${CC} $${LDFLAGS_${1}} -o $$@ $${OBJS_${1}}
+	$${CC} $${OBJS_${1}} $${LDFLAGS_${1}} -o $$@
 endef
 
 define mktest_rules =

@@ -44,6 +44,8 @@ dt_month_days(enum dt_month month)
 	case MONTH_FEB:
 		return 28;
 	}
+	/* silence gcc warning about the impossible */
+	return 0;
 }
 
 dt_mday_t

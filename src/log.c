@@ -25,7 +25,7 @@
 
 static log_fatal_handler_t fatal_handler;
 static void *fatal_data;
-static FILE *logging_stream = stderr;
+static FILE *logging_stream;
 static enum log_mode logging_mode;
 static gboolean verbose_mode;
 
@@ -146,6 +146,8 @@ logging_setup(enum log_mode mode)
 	logging_mode = mode;
 	if (mode == LOG_MODE_TAP)
 		logging_stream = stdout;
+	else
+		logging_stream = stderr;
 	g_log_set_default_handler(handler, NULL);
 }
 
@@ -190,7 +192,7 @@ log_gerror(const char *dom, GLogLevelFlags level, GError *err,
 void
 log_errno(const char *dom, GLogLevelFlags level, const char *fmt, ...)
 {
-	char buf[NL_TEXTMAX];
+	char buf[256];
 	va_list ap;
 	int res;
 
