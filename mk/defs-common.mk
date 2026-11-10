@@ -56,7 +56,7 @@ TEST_DEPS_ttydb = mock_stat.c mock_unlink.c stub_x11.c
 TEST_DEPS_parser = ${PEG}.c color_scheme.c datetime.c parser.c scheduler.c
 TEST_DEPS_scheduler = color_scheme.c datetime.c
 
-CFLAGS_MAIN = -DVERSION='"${VERSION}"'
+CFLAGS_MAIN = -DVERSION='"${NAME_$*} ${VERSION}"'
 CFLAGS_depend = ${XCB_CFLAGS}
 CFLAGS_packcc = -Wno-unused-parameter
 CFLAGS_${PEG} = -Wno-unused-parameter
