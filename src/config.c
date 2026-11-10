@@ -307,12 +307,18 @@ config_reload(struct config *conf)
 		return;
 
 	reset(conf);
+	ivars_set_log_label(iv, SECT_GEN);
 	set_tty_dir(conf, iv);
 	set_def_scheme(conf, iv);
+	ivars_set_log_label(iv, "light tty");
 	set_escapes(iv, SECT_LIGHT, &conf->light_escapes);
+	ivars_set_log_label(iv, "dark tty");
 	set_escapes(iv, SECT_DARK, &conf->dark_escapes);
+	ivars_set_log_label(iv, "light resources");
 	conf->light_res = set_res(iv, SECT_LIGHT, &conf->light_res_count);
+	ivars_set_log_label(iv, "dark resources");
 	conf->dark_res = set_res(iv, SECT_DARK, &conf->dark_res_count);
+	ivars_set_log_label(iv, NULL);
 
 	ivars_free(iv);
 }

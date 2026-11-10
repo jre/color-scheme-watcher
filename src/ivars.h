@@ -33,6 +33,7 @@ struct ivars_iter {
 struct ivars *ivars_new(void);
 void ivars_free(struct ivars *);
 void ivars_set_default_section(struct ivars *, const char *);
+void ivars_set_log_label(struct ivars *, const char *);
 void ivars_set_key(struct ivars *, const char *, const char *, const char *);
 char *ivars_lookup_key_v(struct ivars *, const char *, const char *,
     int (*)(char *, const char **));

@@ -25,7 +25,7 @@
 
 struct ivars {
 	GHashTable *vars, *cycle;
-	const char *def_sect;
+	const char *def_sect, *label;
 };
 
 static char *lookup_sect_anykey(struct ivars *, const char *, const char *);
@@ -57,6 +57,12 @@ void
 ivars_set_default_section(struct ivars *iv, const char *sect)
 {
 	iv->def_sect = sect;
+}
+
+void
+ivars_set_log_label(struct ivars *iv, const char *label)
+{
+	iv->label = label;
 }
 
 static char *
@@ -241,17 +247,21 @@ static void
 log_lookup(struct ivars *iv, const char *sectkey,
     const char *rawval, const char *newval)
 {
+	const char *label;
+
+	label = (iv->label == NULL ? "" : iv->label);
 	if (newval == NULL) {
-		log_debug("config val %s unset", sectkey);
+		log_debug("config %s val %s unset", label, sectkey);
 		return;
 	}
 	if (rawval == NULL)
 		rawval = g_hash_table_lookup(iv->vars, sectkey);
 	if (strcmp(rawval, newval) == 0)
-		log_debug("config val %s is \"%s\"", sectkey, newval);
+		log_debug("config %s val %s is \"%s\"",
+		    label, sectkey, newval);
 	else
-		log_debug("config val %s expanded \"%s\" -> \"%s\"",
-		    sectkey, rawval, newval);
+		log_debug("config %s val %s expanded \"%s\" -> \"%s\"",
+		    label, sectkey, rawval, newval);
 }
 
 char *
