@@ -18,7 +18,7 @@ ${TEST_NAME_${t}}: ${TEST_TRS_${t}}
 ${TEST_TRS_${t}}: ${TEST_BIN_${t}}
 	@${TESTRUNNER} ${TESTRUNNER_FLAGS_${t}} -- ${TEST_BIN_${t}}
 ${TEST_BIN_${t}}: ${TEST_OBJS_${t}}
-	${CC} ${LDFLAGS_TESTS} ${LDFLAGS_TEST_${t}} -o $@ ${TEST_OBJS_${t}}
+	${CC} ${TEST_OBJS_${t}} ${LDFLAGS_TESTS} ${LDFLAGS_TEST_${t}} -o $@
 .endfor
 
 ${DEPFILE}: .FORCE-REBUILD-KLUDGE

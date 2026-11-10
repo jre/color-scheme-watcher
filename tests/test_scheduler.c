@@ -14,11 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "test_common.h"
+
 #include <stdio.h>
 
 #include "datetime.h"
 #include "scheduler.h"
-#include "test_common.h"
 
 /* include the actual C file to test static functions */
 #include "scheduler.c"
@@ -30,8 +31,10 @@
 #define RULESET(nam)				test_ruleset_##nam
 
 #define DEFRULE(n, t, s, ...)	static const struct sched_rule		\
-	RULENAM(n) = { #n, 0, 0, SCHED_RULE_##t, SCHEME_##s, __VA_ARGS__ }
-#define DEFRULE_ALWAYS(n, s)			DEFRULE(n, ALWAYS, s, {0})
+	RULENAM(n) = { .filename = #n, .line = 0, .col = 0,		\
+		       .type = SCHED_RULE_##t, .scheme = SCHEME_##s,	\
+		       __VA_ARGS__ }
+#define DEFRULE_ALWAYS(n, s)			DEFRULE(n, ALWAYS, s)
 #define DEFRULE_TOD_H(n, sc, sh, eh)		DEFRULE(n, TIME_OF_DAY, sc, \
 	    .u.time.start=TOD_SECS_H(sh), .u.time.end=TOD_SECS_H(eh))
 #define DEFRULE_TOD_HM(n, sc, shm, ehm) 	DEFRULE(n, TIME_OF_DAY, sc, \

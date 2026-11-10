@@ -14,10 +14,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "test_common.h"
+
 #include <sys/types.h>
 #include <signal.h>
-
-#include "test_common.h"
 
 #include "datetime.h"
 

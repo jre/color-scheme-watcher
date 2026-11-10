@@ -17,6 +17,10 @@
 #ifndef _TEST_COMMON_H
 #define _TEST_COMMON_H
 
+#ifdef __linux__
+#  define _GNU_SOURCE
+#endif
+
 #include <stdlib.h>
 
 #include <glib.h>

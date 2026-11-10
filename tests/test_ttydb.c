@@ -17,12 +17,12 @@
 #define unlink(...)	mock_unlink_func(__VA_ARGS__)
 #define stat(...)	mock_stat_func(__VA_ARGS__)
 
+#include "test_common.h"
+
 #include <stdio.h>
 
 #include "mock_stat.h"
 #include "mock_unlink.h"
-
-#include "test_common.h"
 
 /* include the actual C file to test static functions */
 #include "ttydb.c"

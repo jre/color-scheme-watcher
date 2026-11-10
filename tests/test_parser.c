@@ -14,11 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "test_common.h"
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "test_common.h"
 
 #include "parser.h"
 #include "util.h"
