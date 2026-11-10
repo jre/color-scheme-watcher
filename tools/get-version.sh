@@ -14,6 +14,9 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+afile=.archive-version.txt
+fixtag='s/^v\([0-9]\)/\1/'
+
 dflag=
 case "$1" in
     --clean) ;;
@@ -26,13 +29,19 @@ esac
 vfile="$2"
 
 if ! [ -d .git ]; then
-   cat "$vfile"
-   exit $?
+    if [ -r "$vfile" ]; then
+        cat "$vfile"
+        exit $?
+    elif [ -s "$afile" ] && ! grep -q % "$afile"; then
+        sed "$fixtag" < "$afile"
+        exit $?
+    fi
+    exit 1
 fi
 
-tag="$(git describe $dflag --tags --exact-match 2>/dev/null)"
+tag="$(git describe $dflag --tags --exact-match 2>/dev/null | sed "$fixtag")"
 if [ -n "$tag" ]; then
-    echo "${tag#v}"
+    echo "${tag}"
     exit 0
 fi
 
