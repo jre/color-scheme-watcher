@@ -16,7 +16,6 @@
 
 #include "config.h"
 #include "escapes.h"
-#include "ttydb.h"
 #include "util.h"
 
 /*  https://www.xfree86.org/current/ctlseqs.html */
@@ -140,4 +139,32 @@ get_term_escapes(enum term_type term, const struct config_scheme *scheme)
 	default:
 		return NULL;
 	}
+}
+
+static struct { const char *class; enum term_type type; } term_types[] = {
+	{ "Rxvt", TERM_RXVT },
+	{ "URxvt", TERM_URXVT },
+	{ "XTerm", TERM_XTERM },
+};
+
+enum term_type
+term_class_type(const char *class)
+{
+	size_t i;
+
+	for (i = 0; i < NITEMS(term_types); i++)
+		if (strcmp(class, term_types[i].class) == 0)
+			return term_types[i].type;
+	return TERM_UNKNOWN;
+}
+
+const char *
+term_type_class(enum term_type type)
+{
+	size_t i;
+
+	for (i = 0; i < NITEMS(term_types); i++)
+		if (term_types[i].type == type)
+			return term_types[i].class;
+	return "unknown";
 }

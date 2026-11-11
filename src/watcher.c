@@ -32,7 +32,6 @@
 #include "notify.h"
 #include "paths.h"
 #include "sigsource.h"
-#include "ttydb.h"
 #include "x11.h"
 
 enum action {
@@ -49,7 +48,6 @@ struct options {
 struct state {
 	struct config *conf;
 	struct xcb_connection_t *xcon;
-	struct ttydb *ttydb;
 	GDBusConnection *bus;
 	GDBusProxy *proxy;
 	gulong sig_id;
@@ -58,32 +56,26 @@ struct state {
 };
 
 static void
-apply_scheme(struct config *conf, struct ttydb *db,
-    struct xcb_connection_t *con, enum color_scheme scheme)
+apply_scheme(struct config *conf, struct xcb_connection_t *con,
+    enum color_scheme scheme)
 {
 	const struct config_pair *xres;
-	const struct ttyinfo *ti;
-	struct ttydb_iter iter;
+	struct x11_term_info *ti;
+	GList *windows, *i;
 	const char *esc;
 	ssize_t res;
 	size_t len;
 	int fd;
 
-	ttydb_iter_start(db, &iter);
-	while ((ti = ttydb_iter_next(&iter)) != NULL) {
-		if (log_debug_enabled()) {
-			char buf[DT_CTIME_LEN];
-			log_debug("writing escapes for "
-			    "tty=%s term=%s win=%u info=%s ctime=%s",
-			    ti->tty_path, term_type_name(ti->term_type),
-			    ti->window, ti->info_path,
-			    dt_ctime(buf, sizeof(buf), ti->info_ctime.tv_sec));
-		}
+	windows = x11_find_term_windows(con);
+	for (i = windows; i != NULL; i = i->next) {
+		ti = i->data;
+		log_debug("writing escapes for tty=%s term=%s",
+		    ti->tty_path, term_type_class(ti->term_type));
 
 		if ((fd = open(ti->tty_path, O_WRONLY)) < 0) {
 			log_error_errno("%s: failed to open for writing",
 			    ti->tty_path);
-			ttydb_invalidate_iter(&iter, "tty open failed");
 			continue;
 		}
 
@@ -93,8 +85,6 @@ apply_scheme(struct config *conf, struct ttydb *db,
 			if ((res = write(fd, esc, strlen(esc))) < 0) {
 				log_error_errno("%s: failed to write escapes",
 				    ti->tty_path);
-				ttydb_invalidate_iter(&iter,
-				    "tty write failed");
 				break;
 			}
 			esc += res;
@@ -103,6 +93,7 @@ apply_scheme(struct config *conf, struct ttydb *db,
 
 		close(fd);
 	}
+	x11_free_term_windows(windows);
 
 	xres = config_resources(conf, scheme, &len);
 	x11_update_resources(con, xres, len);
@@ -121,15 +112,12 @@ change_scheme(enum color_scheme scheme, gpointer user_data)
 		return;
 	}
 
-	ttydb_reload(state->ttydb, state->xcon,
-	    config_tty_info_dir(state->conf));
-
 	notify_status("color scheme is %s", color_scheme_name(scheme));
 
 	log_note("color scheme changed %s -> %s",
 	    color_scheme_name(state->scheme), color_scheme_name(scheme));
 	state->scheme = scheme;
-	apply_scheme(state->conf, state->ttydb, state->xcon, scheme);
+	apply_scheme(state->conf, state->xcon, scheme);
 }
 
 static gboolean
@@ -158,8 +146,6 @@ exit_cleanup(int exitval, struct state *state)
 		g_object_unref(state->proxy);
 	if (state->bus != NULL)
 		g_object_unref(state->bus);
-	if (state->ttydb != NULL)
-		ttydb_free(state->ttydb);
 	if (state->xcon != NULL)
 		x11_disconnect(state->xcon);
 	if (state->conf != NULL)
@@ -183,9 +169,6 @@ act_startup(struct config *conf, struct options *opts)
 	state->scheme = SCHEME_UNKNOWN;
 	state->conf = conf;
 	state->xcon = x11_connect();
-	state->ttydb = ttydb_new(state->xcon);
-	ttydb_reload(state->ttydb, state->xcon,
-	    config_tty_info_dir(state->conf));
 	state->bus = dbus_get();
 	state->proxy = dbus_get_proxy_sync(state->bus, !opts->no_autostart);
 	state->sig_id = dbus_proxy_connect(state->proxy, change_scheme, state);
@@ -245,13 +228,9 @@ static void
 act_set_once(struct config *conf, enum color_scheme scheme)
 {
 	struct xcb_connection_t *con;
-	struct ttydb *db;
 
 	con = x11_connect();
-	db = ttydb_new(NULL);
-	ttydb_reload(db, con, config_tty_info_dir(conf));
-	apply_scheme(conf, db, con, scheme);
-	ttydb_free(db);
+	apply_scheme(conf, con, scheme);
 	x11_disconnect(con);
 }
 

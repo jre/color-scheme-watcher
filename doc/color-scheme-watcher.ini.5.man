@@ -12,7 +12,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd January 20, 2026
+.Dd November 12, 2026
 .Dt COLOR-SCHEME-WATCHER.INI 5
 .Os
 .Sh NAME
@@ -43,23 +43,17 @@ The
 .Cm general
 section contains general configuration options.
 The
-.Ev HOME
-environment variable is available for variable substitution.
-The
 following configuration keys are recognized:
 .Bl -tag -width Ds
-.It Cm tty-info-directory
-Defines the path to a directory containing tty info files.
-Each file should contain two lines:
-.Ql win=$WINDOWID
-and
-.Ql tty=$(tty) .
-Filenames beginning with a dot are ignored.
-The
-.Xr color-scheme-watcher 1
-program will remove invalid or stale files whenever it sets the
-terminal emulator colors, as long as their name does not begin with a
-dot.
+.It Cm default-color-scheme
+Defines which color scheme is used when
+.Cm default
+is requested. The value given must be either
+.Cm dark
+or
+.Cm light ,
+and defaults to
+.Cm light .
 .El
 .Pp
 The
@@ -128,19 +122,10 @@ or
 .Cm dark
 section are available for variable substitution if the section name is
 omitted.
-.Sh ENVIRONMENT
-.Bl -tag -width HOME
-.It Ev HOME
-substituted if used in configuration values, especially useful for
-.Cm tty-info-directory
-.El
 .Sh EXAMPLES
 This is a basic configuration file which alternates between a
 black-on-white and white-on-black color scheme:
 .Bd -literal -offset Ds
-[general]
-tty-info-directory =        ${HOME}/.saved-xterm-ttys
-
 [light]
 foreground =                #000000
 background =                #ffffff

@@ -33,7 +33,6 @@
 #define SECT_GEN		"general"
 #define SECT_RES		"x-resources"
 
-#define SECTKEY_TTY_DIR		SECT_GEN IV_SK_SEP "tty-info-directory"
 #define SECTKEY_DEF_SCHEME	SECT_GEN IV_SK_SEP "default-color-scheme"
 
 #define KEY_DEF_HOME		"HOME"
@@ -51,7 +50,6 @@
 
 struct config {
 	char *filename;
-	char *tty_info_dir;
 	enum color_scheme default_scheme;
 	char *light_escapes[N_TERM_TYPES], *dark_escapes[N_TERM_TYPES];
 	struct config_pair *light_res, *dark_res;
@@ -68,8 +66,6 @@ reset(struct config *conf)
 {
 	unsigned int i;
 
-	g_free(conf->tty_info_dir);
-	conf->tty_info_dir = NULL;
 	conf->default_scheme = DEFAULT_DEFAULT_SCHEME;
 
 	for (i = 0; i < N_TERM_TYPES; i++) {
@@ -162,16 +158,6 @@ parse(const char *filename)
 
 	ivars_free(state.iv);
 	return NULL;
-}
-
-static void
-set_tty_dir(struct config *conf, struct ivars *iv)
-{
-	ivars_set_default_section(iv, SECT_DEF);
-	conf->tty_info_dir = ivars_lookup_sectkey(iv, SECTKEY_TTY_DIR);
-	if (conf->tty_info_dir == NULL)
-		log_error("%s: missing %s setting",
-		    conf->filename, SECTKEY_TTY_DIR);
 }
 
 static void
@@ -308,7 +294,6 @@ config_reload(struct config *conf)
 
 	reset(conf);
 	ivars_set_log_label(iv, SECT_GEN);
-	set_tty_dir(conf, iv);
 	set_def_scheme(conf, iv);
 	ivars_set_log_label(iv, "light tty");
 	set_escapes(iv, SECT_LIGHT, &conf->light_escapes);
@@ -321,12 +306,6 @@ config_reload(struct config *conf)
 	ivars_set_log_label(iv, NULL);
 
 	ivars_free(iv);
-}
-
-const char *
-config_tty_info_dir(struct config *conf)
-{
-	return conf->tty_info_dir;
 }
 
 const char *

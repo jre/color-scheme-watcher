@@ -17,10 +17,15 @@
 #ifndef _ESCAPES_H
 #define _ESCAPES_H
 
-#include "ttydb.h"
-
 struct config_scheme;
 
+/* note that this enum is used as an array index */
+enum term_type { TERM_XTERM = 0, TERM_RXVT, TERM_UNKNOWN };
+#define TERM_URXVT			(TERM_RXVT)
+#define N_TERM_TYPES			(TERM_UNKNOWN)
+
+enum term_type term_class_type(const char *);
+const char *term_type_class(enum term_type);
 char *get_term_escapes(enum term_type, const struct config_scheme *);
 
 #endif /* _ESCAPES_H */

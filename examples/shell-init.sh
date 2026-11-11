@@ -1,11 +1,9 @@
-# save xterm tty and window ID for use by color-scheme-watcher
+# save xterm tty for use by color-scheme-watcher
 case "$TERM" in
     xterm*|rxvt*)
-    if [ -n "$WINDOWID" ] && tty -s; then
-        mkdir -p ~/.saved-xterm-ttys
-        (echo "win=$WINDOWID"; echo "tty=$(tty)") > ~/.saved-xterm-ttys/.$$
-        mv ~/.saved-xterm-ttys/.$$ ~/.saved-xterm-ttys/$$
-        trap "rm -f ~/.saved-xterm-ttys/$$" EXIT
-    fi
-    ;;
+        if [ -n "$WINDOWID" ] && tty -s; then
+            xprop -id "$WINDOWID" -f COLOR_SCHEME_WATCHER_TTY 8s \
+                -set COLOR_SCHEME_WATCHER_TTY "`tty`"
+        fi
+        ;;
 esac

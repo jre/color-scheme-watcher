@@ -12,7 +12,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd January 20, 2026
+.Dd November 12, 2026
 .Dt COLOR-SCHEME-WATCHER 1
 .Os
 .Sh NAME
@@ -38,16 +38,24 @@ will be written to the tty device of any detected
 .Xr xterm 1
 or
 .Xr rxvt 1
-instances.
-The shell will need to be configured to save the tty path and
-.Ev WINDOWID
-variable.
-The X resource database will additionally be updated so that
-new terminal emulator instances will use the current color-scheme.
+instances.  The X resource database will additionally be updated so
+that new terminal emulator instances will use the current
+color-scheme.
 .Pp
-The terminal emulator will need to be configured to interpret the
-escape sequences, as well as to allow custom hilight colors.
-For
+The shell must be configured to set an
+X11 property named
+.Cm COLOR_SCHEME_WATCHER_TTY
+on each terminal emulator window, containing the path to the tty
+device.  See the
+.Sx EXAMPLES
+section for an example using
+.Xr sh 1
+syntax. Verify that the property was set correctly using the following
+command:
+.Dl $ xprop -id $WINDOWID | grep COLOR_SCHEME_WATCHER_TTY
+.Pp
+The terminal emulator may need to be configured to interpret the
+escape sequences, as well as to allow custom highlight colors.  For
 .Xr xterm 1
 this may be achieved by adding the following to the
 .Pa ~/.Xresources
@@ -176,22 +184,17 @@ is already running then this may also be achieved with:
 .Pp
 The following shell fragment may be placed in a a file such as
 .Pa ~/.profile
-to save the terminal emulator's tty device and
-.Ev WINDOWID
-variable for use by
+to save the terminal emulator's tty device for use by
 .Nm :
 .Bd -literal -offset XXXX
-# save xterm tty and window ID for use by color-scheme-watcher
+# save xterm tty for use by color-scheme-watcher
 case "$TERM" in
     xterm*|rxvt*)
-    if [ -n "$WINDOWID" ] && tty -s; then
-        mkdir -p ~/.saved-xterm-ttys
-        (echo "win=$WINDOWID"; echo "tty=$(tty)") \\
-	    > ~/.saved-xterm-ttys/.$$
-        mv ~/.saved-xterm-ttys/.$$ ~/.saved-xterm-ttys/$$
-        trap "rm -f ~/.saved-xterm-ttys/$$" EXIT
-    fi
-    ;;
+        if [ -n "$WINDOWID" ] && tty -s; then
+            xprop -id "$WINDOWID" -f COLOR_SCHEME_WATCHER_TTY 8s \e
+                -set COLOR_SCHEME_WATCHER_TTY "`tty`"
+        fi
+        ;;
 esac
 .Ed
 .Sh SEE ALSO

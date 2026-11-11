@@ -45,14 +45,13 @@ INSTALL_DATA = install ${INSTALL_FLAGS} -m 444
 INSTALL_DIR = install -d ${INSTALL_FLAGS} -m 755
 
 PROGS = schemer watcher pcc
-TESTS = datetime ttydb parser scheduler
+TESTS = datetime parser scheduler
 PEG = grammar
 TESTRUNNER = ${TOOLDIR}/tap-driver.sh
 
 LDFLAGS_TESTS = ${LDFLAGS} ${GLIB_LDFLAGS}
 TEST_DEPS_ALL = log.c
 TEST_DEPS_datetime = datetime.c
-TEST_DEPS_ttydb = mock_stat.c mock_unlink.c stub_x11.c
 TEST_DEPS_parser = ${PEG}.c color_scheme.c datetime.c parser.c scheduler.c
 TEST_DEPS_scheduler = color_scheme.c datetime.c
 
@@ -76,7 +75,7 @@ BIN_pcc = ${OBJDIR}/packcc
 
 SRCS_COMMON = color_scheme.c datetime.c dbus.c log.c notify.c sigsource.c
 SRCS_UNIQ_SCHEMER = ${OBJDIR}/${PEG}.c parser.c scheduler.c schemer.c settings.c
-SRCS_UNIQ_WATCHER = watcher.c config.c escapes.c ini.c ivars.c ttydb.c x11.c
+SRCS_UNIQ_WATCHER = watcher.c config.c escapes.c ini.c ivars.c x11.c
 SRCS_schemer = ${SRCS_COMMON} ${SRCS_UNIQ_SCHEMER}
 SRCS_watcher = ${SRCS_COMMON} ${SRCS_UNIQ_WATCHER}
 SRCS_pcc = ${TOOLDIR}/packcc.c

@@ -21,16 +21,21 @@
 
 #include <glib.h>
 
+#include "escapes.h"
+
 struct config_pair;
-struct ttydb;
-struct ttydb_iter;
 struct xcb_connection_t;
 typedef uint32_t x11_window_t;
 
+struct x11_term_info {
+	const char *tty_path;
+	enum term_type term_type;
+};
+
 struct xcb_connection_t *x11_connect(void);
 void x11_disconnect(struct xcb_connection_t *);
-guint x11_watch_ttydb_windows(struct xcb_connection_t *, struct ttydb *);
-void x11_validate_windows(struct xcb_connection_t *, struct ttydb *);
+GList *x11_find_term_windows(struct xcb_connection_t *);
+void x11_free_term_windows(GList *);
 void x11_update_resources(struct xcb_connection_t *,
     const struct config_pair *, size_t);
 

@@ -18,7 +18,7 @@
 #define _CONFIG_H
 
 #include "color_scheme.h"
-#include "ttydb.h"
+#include "escapes.h"
 
 struct config;
 
@@ -43,7 +43,6 @@ struct config_pair {
 struct config *config_new(const char *);
 void config_free(struct config *);
 void config_reload(struct config *);
-const char *config_tty_info_dir(struct config *);
 const char *config_escapes(struct config *, enum color_scheme, enum term_type);
 const struct config_pair *config_resources(struct config *, enum color_scheme,
     size_t *);
