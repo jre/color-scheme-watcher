@@ -22,6 +22,4 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
-        run: |
-          gh release create "$TAG" --verify-tag --generate-notes \
-             build/color-scheme-watcher-*.tar.gz
+        run: gh release create "$TAG" --verify-tag --generate-notes
