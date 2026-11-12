@@ -4,7 +4,8 @@ PartOf=graphical-session.target
 After=graphical-session.target
 
 [Service]
-Type=exec
+Type=notify-reload
+NotifyAccess=main
 ExecStart=%WATCHER_PATH% --verbose
 ExecReload=kill -HUP $MAINPID
 

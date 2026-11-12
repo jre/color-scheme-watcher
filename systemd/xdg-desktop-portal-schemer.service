@@ -5,6 +5,7 @@ After=dbus.service
 
 [Service]
 Type=dbus
+NotifyAccess=main
 BusName=org.freedesktop.impl.portal.desktop.schemer
 ExecStart=%SCHEMER_PATH% --replace --verbose
 ExecReload=kill -HUP $MAINPID
