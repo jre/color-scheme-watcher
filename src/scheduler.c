@@ -205,6 +205,8 @@ merge_event(struct sched_event *plan, time_t day_start, time_t day_end,
 	start = day_start + rel_start;
 	g_assert(day_end > day_start);
 	end = day_start + MIN((dt_tod_t)(day_end - day_start), rel_end);
+	if (end == start)
+		return plan;
 
 	for (ev = plan; ev != NULL; ev = ev->next) {
 		time_t ev_end = (ev->next == NULL ? day_end : ev->next->time);
