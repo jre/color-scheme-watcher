@@ -6,6 +6,6 @@ all:
 MAKE_CMD = ${.MAKE} ${.MAKEFLAGS}
 
 .for t in ${RECURSE_TARGETS}
-${t}:
+${t}: ${RECURSE_DEPS}
 	cd ${OBJDIR} && ${MAKE_CMD} ${RECURSE_VARS} ${t}
 .endfor

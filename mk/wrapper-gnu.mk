@@ -6,7 +6,7 @@ include ${TOP}/mk/wrapper-common.mk
 MAKE_CMD = ${MAKE} ${MAKEFLAGS}
 
 define mkrecurse
-${1}:
+${1}: $${RECURSE_DEPS}
 	cd $${OBJDIR} && $${MAKE_CMD} $${RECURSE_VARS} ${1}
 endef
 
