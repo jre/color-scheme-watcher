@@ -4,10 +4,11 @@ TESTDIR = ${TOP}/tests
 OBJDIR ?= ${TOP}/build
 
 PREFIX ?= /usr/local
+EXEC_PREFIX ?= ${PREFIX}
 ETCDIR ?= /etc
 UNITDIR ?= ${ETCDIR}/systemd/user
-BINDIR ?= ${PREFIX}/bin
-LIBEXECDIR ?= ${PREFIX}/libexec
+BINDIR ?= ${EXEC_PREFIX}/bin
+LIBEXECDIR ?= ${EXEC_PREFIX}/libexec
 MANDIR ?= ${PREFIX}/man
 MAN1DIR ?= ${MANDIR}/man1
 MAN5DIR ?= ${MANDIR}/man5

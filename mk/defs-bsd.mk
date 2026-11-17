@@ -1,12 +1,5 @@
 .include "${TOP}/mk/defs-common.mk"
 
-VERSION != ${CMD_VERSION}
-DIST_VERSION != ${CMD_DIST_VERSION}
-GLIB_CFLAGS != ${CMD_GLIB_CFLAGS}
-GLIB_LDFLAGS != ${CMD_GLIB_LDFLAGS}
-XCB_CFLAGS != ${CMD_XCB_CFLAGS}
-XCB_LDFLAGS != ${CMD_XCB_LDFLAGS}
-
 .for p in ${PROGS}
 OBJS_${p} = ${SRCS_${p}:T:.c=.o}
 .endfor

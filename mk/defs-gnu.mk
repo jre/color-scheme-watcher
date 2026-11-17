@@ -1,12 +1,5 @@
 include ${TOP}/mk/defs-common.mk
 
-VERSION := $(shell ${CMD_VERSION})
-DIST_VERSION := $(shell ${CMD_DIST_VERSION})
-GLIB_CFLAGS := $(shell ${CMD_GLIB_CFLAGS})
-GLIB_LDFLAGS := $(shell ${CMD_GLIB_LDFLAGS})
-XCB_CFLAGS := $(shell ${CMD_XCB_CFLAGS})
-XCB_LDFLAGS := $(shell ${CMD_XCB_LDFLAGS})
-
 define mkprog_defs =
 OBJS_${1} = $$(notdir $${SRCS_${1}:.c=.o})
 endef

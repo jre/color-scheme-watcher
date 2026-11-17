@@ -1,7 +1,16 @@
 all:
 
+.include "${OBJDIR}/auto.mk"
 .include "${TOP}/mk/defs-bsd.mk"
 .include "${TOP}/mk/build-common.mk"
+
+VERSION != ${CMD_VERSION}
+DIST_VERSION != ${CMD_DIST_VERSION}
+
+GLIB_CFLAGS ?!= ${CMD_GLIB_CFLAGS}
+GLIB_LDFLAGS ?!= ${CMD_GLIB_LDFLAGS}
+XCB_CFLAGS ?!= ${CMD_XCB_CFLAGS}
+XCB_LDFLAGS ?!= ${CMD_XCB_LDFLAGS}
 
 .PATH: ${SRCDIR} ${TOOLDIR} ${TESTDIR}
 .SUFFIXES:
