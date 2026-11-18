@@ -14,9 +14,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifdef HAVE_CONFIG_H
+#  include "autoconfig.h"
+#endif
+
 #include <sys/types.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <string.h>
 #include <time.h>
 
 #include "datetime.h"
@@ -150,10 +155,75 @@ dt_ctime(char *buf, size_t len, time_t when)
 	return buf;
 }
 
+#ifdef HAVE_TIMER_CREATE
+
+/* setitimer() is much simpler than this mess, but unfortunately on
+ * linux, time spent with the machine suspended doesn't count against
+ * the so-called "realtime" timer. */
+static int
+alarm_in_secs(time_t delta)
+{
+	static timer_t timerid;
+	static int init;
+	struct itimerspec timer;
+	struct sigevent ev;
+
+	if (!init) {
+		memset(&ev, 0, sizeof(ev));
+		ev.sigev_notify = SIGEV_SIGNAL;
+		ev.sigev_signo = SIGALRM;
+#ifdef CLOCK_BOOTTIME
+		errno = 0;
+		if (timer_create(CLOCK_BOOTTIME, &ev, &timerid) == 0)
+			init = 1;
+		else if (errno != EINVAL) {
+			log_error_errno("timer_create(CLOCK_BOOTTIME)");
+			return -1;
+		}
+	}
+	if (!init) {
+#endif
+		errno = 0;
+		if (timer_create(CLOCK_REALTIME, &ev, &timerid) == 0)
+		init = 1;
+		else {
+			log_error_errno("timer_create(CLOCK_REALTIME)");
+			return -1;
+		}
+	}
+
+	memset(&timer, 0, sizeof(timer));
+	timer.it_value.tv_sec = delta;
+	errno = 0;
+	if (timer_settime(timerid, 0, &timer, NULL) != 0) {
+		log_error_errno("timer_settime");
+		return -1;
+	}
+	return 0;
+}
+
+#else /* HAVE_TIMER_CREATE */
+
+static int
+alarm_in_secs(time_t delta)
+{
+	struct itimerval timer;
+
+	memset(&timer, 0, sizeof(timer));
+	timer.it_value.tv_sec = delta;
+	errno = 0;
+	if (setitimer(ITIMER_REAL, &timer, NULL) != 0) {
+		log_error_errno("setitimer");
+		return -1;
+	}
+	return 0;
+}
+
+#endif /* HAVE_TIMER_CREATE */
+
 int
 dt_alarm_at(time_t when)
 {
-	struct itimerval timer;
 	time_t now;
 
 	now = time(NULL);
@@ -161,15 +231,5 @@ dt_alarm_at(time_t when)
 		raise(SIGALRM);
 		return 0;
 	}
-
-	memset(&timer, 0, sizeof(timer));
-	timer.it_value.tv_sec = when - now;
-	errno = 0;
-	if (setitimer(ITIMER_REAL, &timer, NULL) == 0)
-	    return 0;
-	if (errno == 0)
-		log_error("setitimer() failed");
-	else
-		log_error_errno("setitimer() failed");
-	return -1;
+	return alarm_in_secs(when - now);
 }
