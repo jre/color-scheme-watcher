@@ -6,7 +6,7 @@ endef
 
 define mktest_defs =
 TEST_NAME_${1} = test-${1}
-TEST_BIN_${1} = $${OBJDIR}/test_${1}}
+TEST_BIN_${1} = $${OBJDIR}/test_${1}
 TEST_SRCS_${1} = test_${1}.c $${TEST_DEPS_ALL} $${TEST_DEPS_${1}}
 TEST_OBJS_${1} = $(notdir $${TEST_SRCS_${1}:.c=.o})
 TEST_TRS_${1} = $${OBJDIR}/test-${1}.trs
