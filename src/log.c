@@ -196,7 +196,10 @@ log_errno(const char *dom, GLogLevelFlags level, const char *fmt, ...)
 	va_list ap;
 	int res;
 
-	res = strerror_r(errno, buf, sizeof(buf));
+	if (errno == 0)
+		res = 0;
+	else
+		res = strerror_r(errno, buf, sizeof(buf));
 	va_start(ap, fmt);
 	vhandler(dom, level, fmt, ap, (res == 0 ? NULL : buf));
 	va_end(ap);
