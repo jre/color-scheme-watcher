@@ -17,4 +17,9 @@ PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES([GLIB], [glib-2.0 gio-2.0])
 PKG_CHECK_MODULES([XCB], [xcb xcb-icccm xcb-xrm])
 
+AC_CHECK_DECLS([timer_create], [AC_CHECK_FUNCS([timer_create])], [], [[
+#include <signal.h>
+#include <time.h>
+]])
+
 AC_OUTPUT
