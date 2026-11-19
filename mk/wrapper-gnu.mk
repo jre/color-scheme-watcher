@@ -3,7 +3,7 @@ all:
 include ${TOP}/mk/defs-gnu.mk
 include ${TOP}/mk/wrapper-common.mk
 
-MAKE_CMD = ${MAKE} ${MAKEFLAGS}
+MAKE_CMD = ${MAKE}
 
 define mkrecurse
 ${1}: $${RECURSE_DEPS}
