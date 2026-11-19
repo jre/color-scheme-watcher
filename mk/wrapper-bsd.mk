@@ -3,7 +3,7 @@ all:
 .include "${TOP}/mk/defs-bsd.mk"
 .include "${TOP}/mk/wrapper-common.mk"
 
-MAKE_CMD = ${.MAKE} ${.MAKEFLAGS}
+MAKE_CMD = ${.MAKE}
 
 .for t in ${RECURSE_TARGETS}
 ${t}: ${RECURSE_DEPS}
