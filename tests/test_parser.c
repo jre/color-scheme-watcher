@@ -19,9 +19,36 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "parser.h"
 #include "util.h"
+
+static FILE *
+str_fopen(const char *input)
+{
+	char tmp[] = "/tmp/test_parser.XXXXXX";
+	size_t len;
+	FILE *fh;
+	int fd;
+
+	if ((len = strlen(input)) != 0) {
+		if ((fh = fmemopen((void *)input, len, "r")) == NULL)
+			perror("fmemopen");
+		return fh;
+	}
+
+	if ((fd = mkstemp(tmp)) == -1) {
+		perror("mkstemp");
+		return NULL;
+	}
+	unlink(tmp);
+	if ((fh = fdopen(fd, "r")) == NULL) {
+		perror("fdopen");
+		close(fd);
+	}
+	return fh;
+}
 
 G_GNUC_PRINTF(3, 4)
 static void
@@ -174,16 +201,10 @@ test_parse_config(const struct test_parse_config *t)
 {
 	const struct sched_rule * const *rules;
 	char buf[1024];
-	size_t ilen, i;
+	size_t i;
 	FILE *fh;
 
-	ilen = strlen(t->input);
-	if (ilen == 0)
-		fh = fmemopen(NULL, 1, "w+");
-	else
-		fh = fmemopen((void *)t->input, strlen(t->input), "r");
-	if (fh == NULL) {
-		perror("fmemopen");
+	if ((fh = str_fopen(t->input)) == NULL) {
 		g_test_fail();
 		return;
 	}
